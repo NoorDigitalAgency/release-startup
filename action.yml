@@ -1,11 +1,21 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Release Startup'
+description: 'Release Startup GitHub Action'
+author: 'Rojan Gh.'
 inputs:
-  milliseconds: # change this
+  stage:
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: 'Target Stage'
+  commit:
+    required: false
+    description: 'Commit Id'
+    default: ''
+outputs:
+  commit:
+    description: 'Commit Id'
+  version:
+    description: 'Release Version'
+  previousVersion:
+    description: 'Previous Release Version'
 runs:
   using: 'node16'
   main: 'dist/index.js'
