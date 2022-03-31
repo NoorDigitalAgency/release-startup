@@ -54,7 +54,7 @@ async function run(): Promise<void> {
 
     if (detached) {
 
-      await exec.exec('git', ['fetch', '--all']);
+      core.debug(`Git Fetch All: ${await (await exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
 
       const exists = (await exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
 
@@ -69,8 +69,14 @@ async function run(): Promise<void> {
         throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
       }
     }
+    
+    core.debug('Creating Octokit...');
 
     const octokit = new Octokit();
+    
+    core.debug('Octokit Created.');
+
+    core.debug(`GitHub Object: ${JSON.stringify(github, null, '\n')}`);
 
     const context = github.context;
 

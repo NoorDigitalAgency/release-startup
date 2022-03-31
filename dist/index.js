@@ -130,7 +130,7 @@ function run() {
             const detached = !hotfix && reference !== '' && reference !== source;
             core.debug(`Detached: ${detached}`);
             if (detached) {
-                yield exec.exec('git', ['fetch', '--all']);
+                core.debug(`Git Fetch All: ${yield (yield exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
                 const exists = (yield exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
                     .stdout.split('\n').filter(line => line.trim() !== '').map(line => line.trim().split('/').pop())
                     .includes(source);
@@ -139,7 +139,10 @@ function run() {
                     throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
                 }
             }
+            core.debug('Creating Octokit...');
             const octokit = new rest_1.Octokit();
+            core.debug('Octokit Created.');
+            core.debug(`GitHub Object: ${JSON.stringify(github, null, '\n')}`);
             const context = github.context;
             if (hotfix && (reference === '' || (yield octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
