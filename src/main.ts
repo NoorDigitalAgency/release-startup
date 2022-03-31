@@ -2,10 +2,9 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as github from '@actions/github';
 import { Octokit } from '@octokit/rest';
+import { wait, versioning } from './functions';
 
 async function run(): Promise<void> {
-
-  const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
   try {
 
@@ -32,6 +31,11 @@ async function run(): Promise<void> {
     if (reference === target) {
 
       throw new Error(`Cannot reference '${reference}' while releasing to ${stage}.`);
+    }
+
+    if (stage === 'beta' && reference !== '' && !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(reference)) {
+
+      throw new Error(`The reference '${reference}' is not a release version from the 'alpha' stage.`);
     }
 
     const detached = !hotfix && reference !== '' && reference !== source;
@@ -83,12 +87,15 @@ async function run(): Promise<void> {
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
 
-    const lastMainVersion = !prerelease ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
 
       .map(release => release.tag).pop();
 
-    //TODO: Calculate the next version
-    const version = `v0.9.${Math.trunc(Math.random() * 1000)}`;
+    const lastProductionVersion = !prerelease ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
+
+      .map(release => release.tag).pop();
+
+    const version = versioning(stage, reference, hotfix, prerelease, previousVersion, lastAlphaVersion, lastProductionVersion);
 
     core.setOutput('version', version);
 
