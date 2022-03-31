@@ -10,9 +10,15 @@ async function run(): Promise<void> {
 
     const stage = core.getInput('stage', { required: true });
 
+    core.debug(`Stage: '${stage}'`);
+
     const reference = core.getInput('reference');
 
+    core.debug(`Reference: '${reference}'`);
+
     const hotfix = core.getBooleanInput('hotfix');
+
+    core.debug(`Hotfix: ${hotfix}`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
@@ -26,7 +32,11 @@ async function run(): Promise<void> {
 
     const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
 
+    core.debug(`Target: '${target}'`);
+
     const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'beta';
+
+    core.debug(`Source: '${source}'`);
 
     if (reference === target) {
 
@@ -40,6 +50,8 @@ async function run(): Promise<void> {
 
     const detached = !hotfix && reference !== '' && reference !== source;
 
+    core.debug(`Detached: ${detached}`);
+
     if (detached) {
 
       await exec.exec('git', ['fetch', '--all']);
@@ -49,6 +61,8 @@ async function run(): Promise<void> {
         .stdout.split('\n').filter(line => line.trim() !== '').map(line => line.trim().split('/').pop())
 
         .includes(source);
+
+      core.debug(`Exists: ${exists}`);
 
       if (!exists) {
 
@@ -83,17 +97,27 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
+    core.debug(`Releases: ${JSON.stringify(releases, null, '\n')}`);
+
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
+
+    core.debug(`Previous Version: '${previousVersion}'`);
 
     const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
 
       .map(release => release.tag).pop();
 
+    core.debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
+
     const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
 
       .map(release => release.tag).pop();
 
+    core.debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
+
     const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
+
+    core.debug(`Version: '${version}'`);
 
     core.setOutput('version', version);
 
@@ -103,11 +127,17 @@ async function run(): Promise<void> {
 
       core.setOutput('reference', source);
 
+      core.debug(`Reference: '${reference}'`);
+
     } else {
 
       const head = detached || hotfix ? reference : source;
 
+      core.debug(`Head: '${head}'`);
+
       const title = `Automated ${hotfix ? 'hotfix' : stage} release version ${version} pull request`;
+
+      core.debug(`Title: '${title}'`);
 
       let pull = (await octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
 
@@ -117,6 +147,8 @@ async function run(): Promise<void> {
 
         pull = (await octokit.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
       }
+
+      core.debug(`Mergeable: ${pull.mergeable}`);
 
       if (!pull.mergeable) {
 
@@ -135,6 +167,8 @@ async function run(): Promise<void> {
       }
 
       const merge = (await octokit.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+
+      core.debug(`Merged: ${merge.merged}`);
 
       if (merge.merged) {
 

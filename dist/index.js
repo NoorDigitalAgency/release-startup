@@ -106,8 +106,11 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const stage = core.getInput('stage', { required: true });
+            core.debug(`Stage: '${stage}'`);
             const reference = core.getInput('reference');
+            core.debug(`Reference: '${reference}'`);
             const hotfix = core.getBooleanInput('hotfix');
+            core.debug(`Hotfix: ${hotfix}`);
             if (!['production', 'beta', 'alpha'].includes(stage)) {
                 throw new Error(`Invalid stage name '${stage}'.`);
             }
@@ -115,7 +118,9 @@ function run() {
                 throw new Error(`A hotfix can only be released on 'production' but '${stage}' is specified as the stage.`);
             }
             const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
+            core.debug(`Target: '${target}'`);
             const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'beta';
+            core.debug(`Source: '${source}'`);
             if (reference === target) {
                 throw new Error(`Cannot reference '${reference}' while releasing to ${stage}.`);
             }
@@ -123,11 +128,13 @@ function run() {
                 throw new Error(`The reference '${reference}' is not a release version from the 'alpha' stage.`);
             }
             const detached = !hotfix && reference !== '' && reference !== source;
+            core.debug(`Detached: ${detached}`);
             if (detached) {
                 yield exec.exec('git', ['fetch', '--all']);
                 const exists = (yield exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
                     .stdout.split('\n').filter(line => line.trim() !== '').map(line => line.trim().split('/').pop())
                     .includes(source);
+                core.debug(`Exists: ${exists}`);
                 if (!exists) {
                     throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
                 }
@@ -146,25 +153,34 @@ function run() {
                 releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
                 page++;
             } while (count > 0);
+            core.debug(`Releases: ${JSON.stringify(releases, null, '\n')}`);
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
+            core.debug(`Previous Version: '${previousVersion}'`);
             const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
                 .map(release => release.tag).pop();
+            core.debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
             const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
                 .map(release => release.tag).pop();
+            core.debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
+            core.debug(`Version: '${version}'`);
             core.setOutput('version', version);
             core.setOutput('previousVersion', previousVersion);
             if (!hotfix && !detached && target === source) {
                 core.setOutput('reference', source);
+                core.debug(`Reference: '${reference}'`);
             }
             else {
                 const head = detached || hotfix ? reference : source;
+                core.debug(`Head: '${head}'`);
                 const title = `Automated ${hotfix ? 'hotfix' : stage} release version ${version} pull request`;
+                core.debug(`Title: '${title}'`);
                 let pull = (yield octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
                 while (pull.mergeable == null) {
                     yield (0, functions_1.wait)(5000);
                     pull = (yield octokit.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
                 }
+                core.debug(`Mergeable: ${pull.mergeable}`);
                 if (!pull.mergeable) {
                     yield octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
@@ -175,6 +191,7 @@ function run() {
                     requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title }));
                 }
                 const merge = (yield octokit.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+                core.debug(`Merged: ${merge.merged}`);
                 if (merge.merged) {
                     core.setOutput('reference', merge.sha);
                 }
