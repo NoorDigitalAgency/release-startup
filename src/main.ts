@@ -1,12 +1,13 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as github from '@actions/github';
-import { Octokit } from '@octokit/rest';
 import { wait, versioning } from './functions';
 
 async function run(): Promise<void> {
 
   try {
+
+    const token = core.getInput('github_token');
 
     const stage = core.getInput('stage', { required: true });
 
@@ -72,7 +73,7 @@ async function run(): Promise<void> {
     
     core.debug('Creating Octokit...');
 
-    const octokit = new Octokit();
+    const octokit = github.getOctokit(token);
     
     core.debug('Octokit Created.');
 
@@ -80,7 +81,7 @@ async function run(): Promise<void> {
 
     const context = github.context;
 
-    if (hotfix && (reference === '' || (await octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
+    if (hotfix && (reference === '' || (await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
 
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
@@ -93,13 +94,20 @@ async function run(): Promise<void> {
 
     do {
 
-      const pagedReleases = ((await octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
+      try {
 
-      count = pagedReleases.length;
+        const pagedReleases = ((await octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
 
-      releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
+        count = pagedReleases.length;
 
-      page++;
+        releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
+
+        page++;
+        
+      } catch {
+        
+        count = 0;
+      }
 
     } while (count > 0);
 
@@ -145,20 +153,20 @@ async function run(): Promise<void> {
 
       core.debug(`Title: '${title}'`);
 
-      let pull = (await octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
+      let pull = (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
 
       while (pull.mergeable == null) {
 
         await wait(5000);
 
-        pull = (await octokit.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
+        pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
       }
 
       core.debug(`Mergeable: ${pull.mergeable}`);
 
       if (!pull.mergeable) {
 
-        await octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
+        await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
 
         throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
       }
@@ -167,12 +175,12 @@ async function run(): Promise<void> {
 
       if (hotfix) {
 
-        requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title }));
+        requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title }));
 
-        requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title }));
+        requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title }));
       }
 
-      const merge = (await octokit.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+      const merge = (await octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
 
       core.debug(`Merged: ${merge.merged}`);
 
@@ -182,7 +190,7 @@ async function run(): Promise<void> {
 
       } else {
 
-        await octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
+        await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
 
         throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
       }

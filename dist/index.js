@@ -100,11 +100,11 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const github = __importStar(__nccwpck_require__(5438));
-const rest_1 = __nccwpck_require__(5375);
 const functions_1 = __nccwpck_require__(358);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            const token = core.getInput('github_token');
             const stage = core.getInput('stage', { required: true });
             core.debug(`Stage: '${stage}'`);
             const reference = core.getInput('reference');
@@ -140,21 +140,26 @@ function run() {
                 }
             }
             core.debug('Creating Octokit...');
-            const octokit = new rest_1.Octokit();
+            const octokit = github.getOctokit(token);
             core.debug('Octokit Created.');
             core.debug(`GitHub Object: ${JSON.stringify(github)}`);
             const context = github.context;
-            if (hotfix && (reference === '' || (yield octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
+            if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
             }
             const releases = [];
             let page = 1;
             let count;
             do {
-                const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
-                count = pagedReleases.length;
-                releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
-                page++;
+                try {
+                    const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
+                    count = pagedReleases.length;
+                    releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
+                    page++;
+                }
+                catch (_a) {
+                    count = 0;
+                }
             } while (count > 0);
             core.debug(`Releases: ${JSON.stringify(releases)}`);
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
@@ -178,28 +183,28 @@ function run() {
                 core.debug(`Head: '${head}'`);
                 const title = `Automated ${hotfix ? 'hotfix' : stage} release version ${version} pull request`;
                 core.debug(`Title: '${title}'`);
-                let pull = (yield octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
+                let pull = (yield octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
                 while (pull.mergeable == null) {
                     yield (0, functions_1.wait)(5000);
-                    pull = (yield octokit.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
+                    pull = (yield octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
                 }
                 core.debug(`Mergeable: ${pull.mergeable}`);
                 if (!pull.mergeable) {
-                    yield octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
+                    yield octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
                 }
                 const requests = [];
                 if (hotfix) {
-                    requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title }));
-                    requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title }));
+                    requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title }));
+                    requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title }));
                 }
-                const merge = (yield octokit.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+                const merge = (yield octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
                 core.debug(`Merged: ${merge.merged}`);
                 if (merge.merged) {
                     core.setOutput('reference', merge.sha);
                 }
                 else {
-                    yield octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
+                    yield octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
                 }
                 Promise.all(requests);
@@ -3969,44 +3974,6 @@ exports.paginatingEndpoints = paginatingEndpoints;
 
 /***/ }),
 
-/***/ 8883:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-
-const VERSION = "1.0.4";
-
-/**
- * @param octokit Octokit instance
- * @param options Options passed to Octokit constructor
- */
-
-function requestLog(octokit) {
-  octokit.hook.wrap("request", (request, options) => {
-    octokit.log.debug("request", options);
-    const start = Date.now();
-    const requestOptions = octokit.request.endpoint.parse(options);
-    const path = requestOptions.url.replace(options.baseUrl, "");
-    return request(options).then(response => {
-      octokit.log.info(`${requestOptions.method} ${path} - ${response.status} in ${Date.now() - start}ms`);
-      return response;
-    }).catch(error => {
-      octokit.log.info(`${requestOptions.method} ${path} - ${error.status} in ${Date.now() - start}ms`);
-      throw error;
-    });
-  });
-}
-requestLog.VERSION = VERSION;
-
-exports.requestLog = requestLog;
-//# sourceMappingURL=index.js.map
-
-
-/***/ }),
-
 /***/ 3044:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -5302,31 +5269,6 @@ const request = withDefaults(endpoint.endpoint, {
 });
 
 exports.request = request;
-//# sourceMappingURL=index.js.map
-
-
-/***/ }),
-
-/***/ 5375:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-
-var core = __nccwpck_require__(6762);
-var pluginRequestLog = __nccwpck_require__(8883);
-var pluginPaginateRest = __nccwpck_require__(4193);
-var pluginRestEndpointMethods = __nccwpck_require__(3044);
-
-const VERSION = "18.12.0";
-
-const Octokit = core.Octokit.plugin(pluginRequestLog.requestLog, pluginRestEndpointMethods.legacyRestEndpointMethods, pluginPaginateRest.paginateRest).defaults({
-  userAgent: `octokit-rest.js/${VERSION}`
-});
-
-exports.Octokit = Octokit;
 //# sourceMappingURL=index.js.map
 
 
