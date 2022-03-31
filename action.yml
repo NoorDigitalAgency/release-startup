@@ -4,18 +4,22 @@ author: 'Rojan Gh.'
 inputs:
   stage:
     required: true
-    description: 'Target Stage'
-  commit:
+    description: 'Target stage'
+  reference:
     required: false
-    description: 'Commit Id'
+    description: 'Git reference'
     default: ''
+  hotfix:
+    required: false
+    description: 'If it is a hotfix'
+    default: "false"
 outputs:
-  commit:
-    description: 'Commit Id'
+  reference:
+    description: 'Git reference'
   version:
-    description: 'Release Version'
+    description: 'Release version'
   previousVersion:
-    description: 'Previous Release Version'
+    description: 'Previous release version'
 runs:
   using: 'node16'
   main: 'dist/index.js'
