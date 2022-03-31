@@ -62,7 +62,7 @@ async function run(): Promise<void> {
 
     if (hotfix && (reference === '' || (await octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
 
-      throw new Error(reference === '' ? 'The hotfix branch \'reference\' cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
+      throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
     const releases = [];
