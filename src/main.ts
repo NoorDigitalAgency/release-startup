@@ -3,12 +3,9 @@ import * as exec from '@actions/exec';
 import * as github from '@actions/github';
 import { Octokit } from '@octokit/rest';
 
-function wait(milliseconds: number) {
-
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 async function run(): Promise<void> {
+
+  const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
   try {
 
@@ -32,13 +29,18 @@ async function run(): Promise<void> {
 
     const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'beta';
 
+    if (reference === target) {
+
+      throw new Error(`Cannot reference '${reference}' while releasing to ${stage}.`);
+    }
+
     const detached = !hotfix && reference !== '' && reference !== source;
 
     if (detached) {
 
       await exec.exec('git', ['fetch', '--all']);
 
-      const exists = !detached || (await exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
+      const exists = (await exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
 
         .stdout.split('\n').filter(line => line.trim() !== '').map(line => line.trim().split('/').pop())
 
@@ -46,7 +48,7 @@ async function run(): Promise<void> {
 
       if (!exists) {
 
-        throw new Error(`The commit '${reference}' doesn't exist on the base branch '${source}'.`);
+        throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
       }
     }
 
@@ -54,9 +56,9 @@ async function run(): Promise<void> {
 
     const context = github.context;
 
-    if ((await octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.some(branch => branch.name === reference)) {
+    if (hotfix && (await octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference)) {
 
-      throw new Error(`The hotfix branch '${reference}' doesn't exist.'`);
+      throw new Error(`The hotfix branch '${reference}' could not be found.`);
     }
 
     const releases = [];
@@ -77,7 +79,7 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
-    const prerelease = target !== 'main';
+    const prerelease = !hotfix && stage !== 'production';
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
 
@@ -92,11 +94,15 @@ async function run(): Promise<void> {
 
     core.setOutput('previousVersion', previousVersion);
 
-    if (detached || hotfix) {
+    if (!hotfix && !detached && target === source) {
 
-      const head = reference !== '' ? reference : source;
+      core.setOutput('reference', source);
 
-      const title = `automated ${hotfix ? 'hotfix' : stage} release version ${version}`;
+    } else {
+
+      const head = detached || hotfix ? reference : source;
+
+      const title = `Automated ${hotfix ? 'hotfix' : stage} release version ${version} pull request`;
 
       let pull = (await octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title })).data;
 
@@ -109,16 +115,18 @@ async function run(): Promise<void> {
 
       if (!pull.mergeable) {
 
-        await octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[failed] ${title}`});
+        await octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
 
-        throw new Error(`The source '${hotfix ? reference : source}' is not mergeable into '${target}'.`);
+        throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
       }
+
+      const requests = [];
 
       if (hotfix) {
 
-        octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title });
+        requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title }));
 
-        octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title });
+        requests.push(octokit.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title }));
       }
 
       const merge = (await octokit.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
@@ -129,10 +137,12 @@ async function run(): Promise<void> {
 
       } else {
 
-        await octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[failed] ${title}`});
+        await octokit.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
 
-        throw new Error(`Failed to merge the pull request #${pull.number} '[failed] ${title}'.`);
+        throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
       }
+
+      Promise.all(requests);
     }
 
   } catch (error) {
