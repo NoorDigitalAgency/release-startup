@@ -21,7 +21,7 @@ async function run(): Promise<void> {
 
     if (hotfix && stage !== 'production') {
 
-      throw new Error(`A hotfix can only be released on 'production' while '${stage}' is specified.`);
+      throw new Error(`A hotfix can only be released on 'production' but '${stage}' is specified as the stage.`);
     }
 
     const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
