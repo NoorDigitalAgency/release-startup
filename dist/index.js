@@ -102,9 +102,12 @@ const exec = __importStar(__nccwpck_require__(1514));
 const github = __importStar(__nccwpck_require__(5438));
 const functions_1 = __nccwpck_require__(358);
 function run() {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const token = core.getInput('github_token');
+            let token = core.getInput('github_token');
+            token = token === '' ? (_a = process.env.INPUT_GITHUB_TOKEN) !== null && _a !== void 0 ? _a : '' : token;
+            core.debug(`Token: '${token}'`);
             const stage = core.getInput('stage', { required: true });
             core.debug(`Stage: '${stage}'`);
             const reference = core.getInput('reference');
@@ -157,7 +160,7 @@ function run() {
                     releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
                     page++;
                 }
-                catch (_a) {
+                catch (_b) {
                     count = 0;
                 }
             } while (count > 0);
