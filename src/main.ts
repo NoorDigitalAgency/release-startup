@@ -76,7 +76,7 @@ async function run(): Promise<void> {
     
     core.debug('Octokit Created.');
 
-    core.debug(`GitHub Object: ${JSON.stringify(github, null, '\n')}`);
+    core.debug(`GitHub Object: ${JSON.stringify(github)}`);
 
     const context = github.context;
 
@@ -103,7 +103,7 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
-    core.debug(`Releases: ${JSON.stringify(releases, null, '\n')}`);
+    core.debug(`Releases: ${JSON.stringify(releases)}`);
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
 
@@ -191,6 +191,8 @@ async function run(): Promise<void> {
     }
 
   } catch (error) {
+
+    core.debug(`Error: ${JSON.stringify(error)}`);
 
     if (error instanceof Error) core.setFailed(error.message)
   }

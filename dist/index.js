@@ -142,7 +142,7 @@ function run() {
             core.debug('Creating Octokit...');
             const octokit = new rest_1.Octokit();
             core.debug('Octokit Created.');
-            core.debug(`GitHub Object: ${JSON.stringify(github, null, '\n')}`);
+            core.debug(`GitHub Object: ${JSON.stringify(github)}`);
             const context = github.context;
             if (hotfix && (reference === '' || (yield octokit.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
@@ -156,7 +156,7 @@ function run() {
                 releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
                 page++;
             } while (count > 0);
-            core.debug(`Releases: ${JSON.stringify(releases, null, '\n')}`);
+            core.debug(`Releases: ${JSON.stringify(releases)}`);
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
             core.debug(`Previous Version: '${previousVersion}'`);
             const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
@@ -206,6 +206,7 @@ function run() {
             }
         }
         catch (error) {
+            core.debug(`Error: ${JSON.stringify(error)}`);
             if (error instanceof Error)
                 core.setFailed(error.message);
         }
