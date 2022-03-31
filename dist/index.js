@@ -107,6 +107,7 @@ function run() {
         try {
             let token = core.getInput('github_token');
             token = token === '' ? (_a = process.env.INPUT_GITHUB_TOKEN) !== null && _a !== void 0 ? _a : '' : token;
+            core.debug(`Process: ${JSON.stringify(process)}`);
             core.debug(`Token: '${token}'`);
             const stage = core.getInput('stage', { required: true });
             core.debug(`Stage: '${stage}'`);

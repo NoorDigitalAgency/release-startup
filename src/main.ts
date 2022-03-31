@@ -11,6 +11,8 @@ async function run(): Promise<void> {
 
     token = token === '' ? process.env.INPUT_GITHUB_TOKEN ?? '' : token;
 
+    core.debug(`Process: ${JSON.stringify(process)}`);
+
     core.debug(`Token: '${token}'`);
 
     const stage = core.getInput('stage', { required: true });
