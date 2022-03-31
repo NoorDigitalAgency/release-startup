@@ -3,7 +3,7 @@ export function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-export function versioning(stage: string, reference: string, hotfix: boolean, prerelease: boolean, previousVersion: string | undefined, lastAlphaVersion: string | undefined, lastProductionVersion: string | undefined) {
+export function versioning(stage: string, reference: string, hotfix: boolean, previousVersion: string | undefined, lastProductionVersion: string | undefined) {
 
   let version;
 
@@ -32,11 +32,13 @@ export function versioning(stage: string, reference: string, hotfix: boolean, pr
     version = `v${currentYear}.1`;
   }
 
+  const prerelease = !hotfix && stage !== 'production';
+
   if (prerelease) {
 
     if (stage === 'beta') {
 
-      const alphaVersion = reference === '' ? lastAlphaVersion : reference;
+      const alphaVersion = reference === '' ? previousVersion : reference;
 
       if (!alphaVersion || !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(alphaVersion)) {
 

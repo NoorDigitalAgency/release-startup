@@ -83,19 +83,17 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
-    const prerelease = !hotfix && stage !== 'production';
-
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
 
     const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
 
       .map(release => release.tag).pop();
 
-    const lastProductionVersion = !prerelease ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
+    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
 
       .map(release => release.tag).pop();
 
-    const version = versioning(stage, reference, hotfix, prerelease, previousVersion, lastAlphaVersion, lastProductionVersion);
+    const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
 
     core.setOutput('version', version);
 
