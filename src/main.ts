@@ -38,7 +38,7 @@ async function run(): Promise<void> {
 
     core.debug(`Target: '${target}'`);
 
-    const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'beta';
+    const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
 
     core.debug(`Source: '${source}'`);
 
@@ -97,20 +97,13 @@ async function run(): Promise<void> {
 
     do {
 
-      try {
+      const pagedReleases = ((await octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
 
-        const pagedReleases = ((await octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
+      count = pagedReleases.length;
 
-        count = pagedReleases.length;
+      releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
 
-        releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
-
-        page++;
-        
-      } catch {
-        
-        count = 0;
-      }
+      page++;
 
     } while (count > 0);
 

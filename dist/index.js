@@ -121,7 +121,7 @@ function run() {
             }
             const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
             core.debug(`Target: '${target}'`);
-            const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'beta';
+            const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
             core.debug(`Source: '${source}'`);
             if (reference === target) {
                 throw new Error(`Cannot reference '${reference}' while releasing to ${stage}.`);
@@ -153,15 +153,10 @@ function run() {
             let page = 1;
             let count;
             do {
-                try {
-                    const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
-                    count = pagedReleases.length;
-                    releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
-                    page++;
-                }
-                catch (_a) {
-                    count = 0;
-                }
+                const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
+                count = pagedReleases.length;
+                releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
+                page++;
             } while (count > 0);
             core.debug(`Releases: ${(0, flatted_1.stringify)(releases)}`);
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
