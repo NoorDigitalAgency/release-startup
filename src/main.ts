@@ -7,11 +7,7 @@ async function run(): Promise<void> {
 
   try {
 
-    let token = core.getInput('github_token');
-
-    token = token === '' ? process.env.INPUT_GITHUB_TOKEN ?? '' : token;
-
-    core.debug(`Process: ${JSON.stringify(process)}`);
+    const token = core.getInput('github_token');
 
     core.debug(`Token: '${token}'`);
 
