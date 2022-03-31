@@ -2,6 +2,10 @@ name: 'Release Startup'
 description: 'Release Startup GitHub Action'
 author: 'Rojan Gh.'
 inputs:
+  github_token:
+    required: false
+    description: 'GitHub token'
+    default: ''
   stage:
     required: true
     description: 'Target stage'

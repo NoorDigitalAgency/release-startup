@@ -74,14 +74,14 @@ async function run(): Promise<void> {
         throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
       }
     }
+
+    core.debug(`GitHub Object: ${JSON.stringify(github)}`);
     
     core.debug('Creating Octokit...');
 
     const octokit = github.getOctokit(token);
     
     core.debug('Octokit Created.');
-
-    core.debug(`GitHub Object: ${JSON.stringify(github)}`);
 
     const context = github.context;
 
