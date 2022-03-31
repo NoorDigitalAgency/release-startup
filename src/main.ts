@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as github from '@actions/github';
 import { wait, versioning } from './functions';
+import { stringify } from 'flatted';
 
 async function run(): Promise<void> {
 
@@ -73,7 +74,7 @@ async function run(): Promise<void> {
       }
     }
 
-    core.debug(`GitHub Object: ${JSON.stringify(github)}`);
+    core.debug(`GitHub Object: ${stringify(github)}`);
     
     core.debug('Creating Octokit...');
 
@@ -113,7 +114,7 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
-    core.debug(`Releases: ${JSON.stringify(releases)}`);
+    core.debug(`Releases: ${stringify(releases)}`);
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
 
@@ -202,7 +203,7 @@ async function run(): Promise<void> {
 
   } catch (error) {
 
-    core.debug(`Error: ${JSON.stringify(error)}`);
+    core.debug(`Error: ${stringify(error)}`);
 
     if (error instanceof Error) core.setFailed(error.message)
   }

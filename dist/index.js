@@ -101,6 +101,7 @@ const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const github = __importStar(__nccwpck_require__(5438));
 const functions_1 = __nccwpck_require__(358);
+const flatted_1 = __nccwpck_require__(8048);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -140,7 +141,7 @@ function run() {
                     throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
                 }
             }
-            core.debug(`GitHub Object: ${JSON.stringify(github)}`);
+            core.debug(`GitHub Object: ${(0, flatted_1.stringify)(github)}`);
             core.debug('Creating Octokit...');
             const octokit = github.getOctokit(token);
             core.debug('Octokit Created.');
@@ -162,7 +163,7 @@ function run() {
                     count = 0;
                 }
             } while (count > 0);
-            core.debug(`Releases: ${JSON.stringify(releases)}`);
+            core.debug(`Releases: ${(0, flatted_1.stringify)(releases)}`);
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
             core.debug(`Previous Version: '${previousVersion}'`);
             const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
@@ -212,7 +213,7 @@ function run() {
             }
         }
         catch (error) {
-            core.debug(`Error: ${JSON.stringify(error)}`);
+            core.debug(`Error: ${(0, flatted_1.stringify)(error)}`);
             if (error instanceof Error)
                 core.setFailed(error.message);
         }
@@ -9929,6 +9930,113 @@ module.exports = require("util");
 
 "use strict";
 module.exports = require("zlib");
+
+/***/ }),
+
+/***/ 8048:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/*! (c) 2020 Andrea Giammarchi */
+
+const {parse: $parse, stringify: $stringify} = JSON;
+const {keys} = Object;
+
+const Primitive = String;   // it could be Number
+const primitive = 'string'; // it could be 'number'
+
+const ignore = {};
+const object = 'object';
+
+const noop = (_, value) => value;
+
+const primitives = value => (
+  value instanceof Primitive ? Primitive(value) : value
+);
+
+const Primitives = (_, value) => (
+  typeof value === primitive ? new Primitive(value) : value
+);
+
+const revive = (input, parsed, output, $) => {
+  const lazy = [];
+  for (let ke = keys(output), {length} = ke, y = 0; y < length; y++) {
+    const k = ke[y];
+    const value = output[k];
+    if (value instanceof Primitive) {
+      const tmp = input[value];
+      if (typeof tmp === object && !parsed.has(tmp)) {
+        parsed.add(tmp);
+        output[k] = ignore;
+        lazy.push({k, a: [input, parsed, tmp, $]});
+      }
+      else
+        output[k] = $.call(output, k, tmp);
+    }
+    else if (output[k] !== ignore)
+      output[k] = $.call(output, k, value);
+  }
+  for (let {length} = lazy, i = 0; i < length; i++) {
+    const {k, a} = lazy[i];
+    output[k] = $.call(output, k, revive.apply(null, a));
+  }
+  return output;
+};
+
+const set = (known, input, value) => {
+  const index = Primitive(input.push(value) - 1);
+  known.set(value, index);
+  return index;
+};
+
+const parse = (text, reviver) => {
+  const input = $parse(text, Primitives).map(primitives);
+  const value = input[0];
+  const $ = reviver || noop;
+  const tmp = typeof value === object && value ?
+              revive(input, new Set, value, $) :
+              value;
+  return $.call({'': tmp}, '', tmp);
+};
+exports.parse = parse;
+
+const stringify = (value, replacer, space) => {
+  const $ = replacer && typeof replacer === object ?
+            (k, v) => (k === '' || -1 < replacer.indexOf(k) ? v : void 0) :
+            (replacer || noop);
+  const known = new Map;
+  const input = [];
+  const output = [];
+  let i = +set(known, input, $.call({'': value}, '', value));
+  let firstRun = !i;
+  while (i < input.length) {
+    firstRun = true;
+    output[i] = $stringify(input[i++], replace, space);
+  }
+  return '[' + output.join(',') + ']';
+  function replace(key, value) {
+    if (firstRun) {
+      firstRun = !firstRun;
+      return value;
+    }
+    const after = $.call(this, key, value);
+    switch (typeof after) {
+      case object:
+        if (after === null) return after;
+      case primitive:
+        return known.get(after) || set(known, input, after);
+    }
+    return after;
+  }
+};
+exports.stringify = stringify;
+
+const toJSON = any => $parse(stringify(any));
+exports.toJSON = toJSON;
+const fromJSON = any => parse($stringify(any));
+exports.fromJSON = fromJSON;
+
 
 /***/ }),
 
