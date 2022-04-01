@@ -158,7 +158,11 @@ function run() {
             do {
                 const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
                 count = pagedReleases.length;
-                releases.push(...pagedReleases.map(release => { var _a; return ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse((_a = release.published_at) !== null && _a !== void 0 ? _a : release.created_at), published: !release.draft }); }));
+                releases.push(...pagedReleases.filter(release => { var _a; return (_a = release.name) === null || _a === void 0 ? void 0 : _a.startsWith('v20'); }).map(release => {
+                    var _a;
+                    return ({ tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ?
+                            'develop' : release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse((_a = release.published_at) !== null && _a !== void 0 ? _a : release.created_at), published: !release.draft });
+                }));
                 page++;
             } while (count > 0);
             core.startGroup('Releases');
