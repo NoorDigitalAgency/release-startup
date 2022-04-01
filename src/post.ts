@@ -18,7 +18,7 @@ async function run(): Promise<void> {
 
       core.debug(`Attempting to delete the temporary branch '${branch}'`);
 
-      await octokit.rest.git.deleteRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `refs/heads/${branch}` });
+      await octokit.rest.git.deleteRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `heads/${branch}` });
 
       core.debug(`Branch '${branch}' is deleted.`);
 

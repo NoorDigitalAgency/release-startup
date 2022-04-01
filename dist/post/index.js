@@ -51,7 +51,7 @@ function run() {
                 const octokit = github.getOctokit(token);
                 const branch = core.getState('branch');
                 core.debug(`Attempting to delete the temporary branch '${branch}'`);
-                yield octokit.rest.git.deleteRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `refs/heads/${branch}` });
+                yield octokit.rest.git.deleteRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `heads/${branch}` });
                 core.debug(`Branch '${branch}' is deleted.`);
             }
         }
