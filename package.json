@@ -6,7 +6,7 @@
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
-    "package": "ncc build --source-map --license licenses.txt",
+    "package": "ncc build lib/main.js -o dist/main --source-map --license licenses.txt && ncc build lib/post.js -o dist/post --source-map --license licenses.txt",
     "all": "npm run build && npm run package"
   },
   "repository": {
