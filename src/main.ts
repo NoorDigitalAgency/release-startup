@@ -240,3 +240,7 @@ async function run(): Promise<void> {
 }
 
 run();
+
+// TODO: Check if release exists
+// TODO: Check if any changes in alpha
+// TODO: Check if any releases after reference
