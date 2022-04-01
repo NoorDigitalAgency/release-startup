@@ -162,7 +162,7 @@ async function run(): Promise<void> {
 
         core.debug(`Temporary Branch Name: '${branchName}'`);
 
-        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `heads/${branchName}`});
+        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
 
         head = branchName;
       }

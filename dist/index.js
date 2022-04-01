@@ -187,7 +187,7 @@ function run() {
                     core.debug(`SHA: '${sha}'`);
                     const branchName = `release-startup-${sha}-branch`;
                     core.debug(`Temporary Branch Name: '${branchName}'`);
-                    yield octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `heads/${branchName}` });
+                    yield octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
                     head = branchName;
                 }
                 core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
