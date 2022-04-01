@@ -152,9 +152,9 @@ async function run(): Promise<void> {
 
         core.debug(`Git Ref: '${ref}'`);
 
-        const gitReference = (await octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref})).data;
+        const gitReference = (await octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${ref}`})).data;
 
-        const sha = gitReference.object.sha;
+        const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (await octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
 
         core.debug(`SHA: '${sha}'`);
 
@@ -162,7 +162,7 @@ async function run(): Promise<void> {
 
         core.debug(`Temporary Branch Name: '${branchName}'`);
 
-        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
+        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `heads/${branchName}`});
 
         head = branchName;
       }
