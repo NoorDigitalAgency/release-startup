@@ -8,21 +8,23 @@ async function run(): Promise<void> {
 
   try {
 
+    core.info('Starting up...');
+
     const token = core.getInput('github_token');
 
     core.debug(`Token: '${token}'`);
 
     const stage = core.getInput('stage', { required: true });
 
-    core.debug(`Stage: '${stage}'`);
+    core.info(`Stage is: '${stage}'`);
 
     const reference = core.getInput('reference');
 
-    core.debug(`Reference: '${reference}'`);
+    core.info(`Reference is: '${reference}'`);
 
     const hotfix = core.getBooleanInput('hotfix');
 
-    core.debug(`Hotfix: ${hotfix}`);
+    core.info(`Hotfix is: ${hotfix}`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
@@ -36,11 +38,11 @@ async function run(): Promise<void> {
 
     const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
 
-    core.debug(`Target: '${target}'`);
+    core.info(`Target of release: '${target}'`);
 
     const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
 
-    core.debug(`Source: '${source}'`);
+    core.info(`Source of release: '${source}'`);
 
     if (reference === target) {
 
@@ -75,12 +77,8 @@ async function run(): Promise<void> {
     }
 
     core.debug(`GitHub Object: ${stringify(github)}`);
-    
-    core.debug('Creating Octokit...');
 
     const octokit = github.getOctokit(token);
-    
-    core.debug('Octokit Created.');
 
     const context = github.context;
 
@@ -111,7 +109,7 @@ async function run(): Promise<void> {
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
 
-    core.debug(`Previous Version: '${previousVersion}'`);
+    core.info(`Previous version: '${previousVersion}'`);
 
     const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
 
@@ -127,7 +125,7 @@ async function run(): Promise<void> {
 
     const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
 
-    core.debug(`Version: '${version}'`);
+    core.info(`Version: '${version}'`);
 
     core.setOutput('version', version);
 
@@ -135,9 +133,9 @@ async function run(): Promise<void> {
 
     if (!hotfix && !detached && target === source) {
 
-      core.setOutput('reference', source);
+      core.info(`Reference: '${reference}'`);
 
-      core.debug(`Reference: '${reference}'`);
+      core.setOutput('reference', source);
 
     } else {
 
@@ -173,6 +171,8 @@ async function run(): Promise<void> {
 
       if (hotfix) {
 
+        core.info(`Creating merge requests for 'develop' and 'release' branches.`);
+
         requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title, body }));
 
         requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title, body }));
@@ -183,6 +183,8 @@ async function run(): Promise<void> {
       core.debug(`Merged: ${merge.merged}`);
 
       if (merge.merged) {
+
+        core.info(`Reference: '${reference}'`);
 
         core.setOutput('reference', merge.sha);
 
