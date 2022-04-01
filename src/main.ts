@@ -58,7 +58,7 @@ async function run(): Promise<void> {
 
     if (detached) {
 
-      core.debug(`Git Fetch All: ${await (await exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
+      core.debug(`Git Fetch All: ${(await exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
 
       const exists = (await exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
 
@@ -84,6 +84,11 @@ async function run(): Promise<void> {
 
     core.endGroup();
 
+    if ((await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== source)) {
+
+      throw new Error(`The source branch '${source}' was not found.`);
+    }
+
     if (hotfix && (reference === '' || (await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
 
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
@@ -101,7 +106,7 @@ async function run(): Promise<void> {
 
       count = pagedReleases.length;
 
-      releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at), published: !release.draft })));
+      releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft })));
 
       page++;
 
@@ -131,6 +136,12 @@ async function run(): Promise<void> {
 
     const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
 
+    if (releases.some(release => release.tag === version)) {
+
+      throw new Error(`Release version '${version}' already exists.`);
+      
+    }
+
     core.info(`Version: '${version}'`);
 
     core.setOutput('version', version);
@@ -140,6 +151,16 @@ async function run(): Promise<void> {
     core.saveState('delete', false);
 
     if (stage === 'alpha') {
+
+      if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string' && (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status !== 'ahead') {
+
+        throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
+      }
+
+      if (typeof previousVersion === 'string' && (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status !== 'ahead') {
+
+        throw new Error(`Head of 'develop' is not ahead of the previous release '${previousVersion}'.`);
+      }
 
       core.info(`Reference: '${ detached ? reference : 'develop'}'`);
 
@@ -254,7 +275,3 @@ async function run(): Promise<void> {
 }
 
 run();
-
-// TODO: Check if release exists
-// TODO: Check if any changes in alpha
-// TODO: Check if any releases after reference

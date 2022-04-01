@@ -132,7 +132,7 @@ function run() {
             const detached = !hotfix && reference !== '' && reference !== source;
             core.debug(`Detached: ${detached}`);
             if (detached) {
-                core.debug(`Git Fetch All: ${yield (yield exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
+                core.debug(`Git Fetch All: ${(yield exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
                 const exists = (yield exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
                     .stdout.split('\n').filter(line => line.trim() !== '').map(line => line.trim().split('/').pop())
                     .includes(source);
@@ -146,6 +146,9 @@ function run() {
             core.startGroup('GitHub Context');
             core.debug(JSON.stringify(context));
             core.endGroup();
+            if ((yield octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== source)) {
+                throw new Error(`The source branch '${source}' was not found.`);
+            }
             if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
             }
@@ -155,7 +158,7 @@ function run() {
             do {
                 const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
                 count = pagedReleases.length;
-                releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at), published: !release.draft })));
+                releases.push(...pagedReleases.map(release => { var _a; return ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse((_a = release.published_at) !== null && _a !== void 0 ? _a : release.created_at), published: !release.draft }); }));
                 page++;
             } while (count > 0);
             core.startGroup('Releases');
@@ -170,11 +173,20 @@ function run() {
                 .map(release => release.tag).pop();
             core.debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
+            if (releases.some(release => release.tag === version)) {
+                throw new Error(`Release version '${version}' already exists.`);
+            }
             core.info(`Version: '${version}'`);
             core.setOutput('version', version);
             core.setOutput('previous_version', previousVersion);
             core.saveState('delete', false);
             if (stage === 'alpha') {
+                if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string' && (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status !== 'ahead') {
+                    throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
+                }
+                if (typeof previousVersion === 'string' && (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status !== 'ahead') {
+                    throw new Error(`Head of 'develop' is not ahead of the previous release '${previousVersion}'.`);
+                }
                 core.info(`Reference: '${detached ? reference : 'develop'}'`);
                 core.setOutput('reference', 'develop');
             }
@@ -242,9 +254,6 @@ function run() {
     });
 }
 run();
-// TODO: Check if release exists
-// TODO: Check if any changes in alpha
-// TODO: Check if any releases after reference
 
 
 /***/ }),
