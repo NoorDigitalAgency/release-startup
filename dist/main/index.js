@@ -185,7 +185,7 @@ function run() {
                     const gitReference = (yield octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${ref}` })).data;
                     const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (yield octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
                     core.debug(`SHA: '${sha}'`);
-                    const branchName = `release-startup-${sha}-branch`;
+                    const branchName = `temp-${sha}-release-startup`;
                     core.debug(`Temporary Branch Name: '${branchName}'`);
                     yield octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
                     core.saveState('branch', branchName);
@@ -218,7 +218,7 @@ function run() {
                 const merge = (yield octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
                 core.debug(`Merged: ${merge.merged}`);
                 if (merge.merged) {
-                    core.info(`Reference: '${reference}'`);
+                    core.info(`Reference: '${merge.sha}'`);
                     core.setOutput('reference', merge.sha);
                 }
                 else {

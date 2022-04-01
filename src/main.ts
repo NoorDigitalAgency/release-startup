@@ -158,7 +158,7 @@ async function run(): Promise<void> {
 
         core.debug(`SHA: '${sha}'`);
 
-        const branchName = `release-startup-${sha}-branch`;
+        const branchName = `temp-${sha}-release-startup`;
 
         core.debug(`Temporary Branch Name: '${branchName}'`);
 
@@ -219,7 +219,7 @@ async function run(): Promise<void> {
 
       if (merge.merged) {
 
-        core.info(`Reference: '${reference}'`);
+        core.info(`Reference: '${merge.sha}'`);
 
         core.setOutput('reference', merge.sha);
 
