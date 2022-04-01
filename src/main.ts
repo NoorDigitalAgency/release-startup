@@ -78,6 +78,12 @@ async function run(): Promise<void> {
 
     const context = github.context;
 
+    core.startGroup('GitHub Context');
+
+    core.debug(JSON.stringify(context));
+
+    core.endGroup();
+
     if (hotfix && (reference === '' || (await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
 
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
@@ -101,7 +107,11 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
+    core.startGroup('Releases');
+
     core.debug(`Releases: ${JSON.stringify(releases)}`);
+
+    core.endGroup();
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
 
@@ -233,7 +243,11 @@ async function run(): Promise<void> {
 
   } catch (error) {
 
+    core.startGroup('Error');
+
     core.debug(`Error: ${stringify(error)}`);
+
+    core.endGroup();
 
     if (error instanceof Error) core.setFailed(error.message);
   }

@@ -143,6 +143,9 @@ function run() {
             }
             const octokit = github.getOctokit(token);
             const context = github.context;
+            core.startGroup('GitHub Context');
+            core.debug(JSON.stringify(context));
+            core.endGroup();
             if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
             }
@@ -155,7 +158,9 @@ function run() {
                 releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at), published: !release.draft })));
                 page++;
             } while (count > 0);
+            core.startGroup('Releases');
             core.debug(`Releases: ${JSON.stringify(releases)}`);
+            core.endGroup();
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
             core.info(`Previous version: '${previousVersion !== null && previousVersion !== void 0 ? previousVersion : ''}'`);
             const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => a.creation - b.creation)
@@ -228,13 +233,18 @@ function run() {
             }
         }
         catch (error) {
+            core.startGroup('Error');
             core.debug(`Error: ${(0, flatted_1.stringify)(error)}`);
+            core.endGroup();
             if (error instanceof Error)
                 core.setFailed(error.message);
         }
     });
 }
 run();
+// TODO: Check if release exists
+// TODO: Check if any changes in alpha
+// TODO: Check if any releases after reference
 
 
 /***/ }),
