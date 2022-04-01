@@ -1,7 +1,7 @@
 {
   "name": "release-startup",
   "version": "1.0.0",
-  "private": false,
+  "private": true,
   "description": "Release Startup Action",
   "main": "lib/main.js",
   "scripts": {
@@ -13,12 +13,7 @@
     "type": "git",
     "url": "git+https://github.com/NoorDigitalAgency/release-startup.git"
   },
-  "keywords": [
-    "actions",
-    "node",
-    "setup"
-  ],
-  "author": "",
+  "author": "Rojan Gh.",
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",
