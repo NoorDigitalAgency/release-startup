@@ -182,12 +182,12 @@ function run() {
                         throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
                     }
                     core.debug(`Git Ref: '${ref}'`);
-                    const gitReference = (yield octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${ref}` })).data;
+                    const gitReference = (yield octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `refs/tags/${ref}` })).data;
                     const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (yield octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
                     core.debug(`SHA: '${sha}'`);
                     const branchName = `release-startup-${sha}-branch`;
                     core.debug(`Temporary Branch Name: '${branchName}'`);
-                    yield octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `heads/${branchName}` });
+                    yield octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
                     head = branchName;
                 }
                 core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
