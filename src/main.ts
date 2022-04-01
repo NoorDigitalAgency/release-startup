@@ -76,7 +76,7 @@ async function run(): Promise<void> {
       }
     }
 
-    core.debug(`GitHub Object: ${stringify(github)}`);
+    core.debug(`GitHub Object: ${stringify(github.context)}`);
 
     const octokit = github.getOctokit(token);
 
@@ -139,13 +139,39 @@ async function run(): Promise<void> {
 
     } else {
 
-      const head = detached || hotfix ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
+      let head = hotfix ? reference : null;
 
-      core.debug(`Head: '${head}'`);
+      if (!hotfix) {
+
+        const ref = detached ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
+
+        if (typeof ref !== 'string') {
+
+          throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
+        }
+
+        core.debug(`Git Ref: '${ref}'`);
+
+        const gitReference = (await octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref})).data;
+
+        const sha = gitReference.object.sha;
+
+        core.debug(`SHA: '${sha}'`);
+
+        const branchName = `release-startup-${sha}-branch`;
+
+        core.debug(`Temporary Branch Name: '${branchName}'`);
+
+        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
+
+        head = branchName;
+      }
+
+      core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
 
       if (typeof head !== 'string') {
 
-        throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
+        throw new Error(`Invalid 'head' value for creating a pull request.`);
       }
 
       const title = `Generated PR for ${hotfix ? 'hotfix' : stage}/${version}`;
