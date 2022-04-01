@@ -168,7 +168,7 @@ function run() {
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
             core.info(`Version: '${version}'`);
             core.setOutput('version', version);
-            core.setOutput('previous-version', previousVersion);
+            core.setOutput('previous_version', previousVersion);
             core.saveState('delete', false);
             if (stage === 'alpha') {
                 core.info(`Reference: '${detached ? reference : 'develop'}'`);

@@ -21,7 +21,7 @@ outputs:
     description: Git reference
   version:
     description: Release version
-  previousVersion:
+  previous_version:
     description: Previous version
 runs:
   using: 'node16'

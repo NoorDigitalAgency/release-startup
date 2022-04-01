@@ -127,7 +127,7 @@ async function run(): Promise<void> {
 
     core.setOutput('version', version);
 
-    core.setOutput('previous-version', previousVersion);
+    core.setOutput('previous_version', previousVersion);
 
     core.saveState('delete', false);
 
