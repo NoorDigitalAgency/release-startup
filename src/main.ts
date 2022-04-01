@@ -74,8 +74,6 @@ async function run(): Promise<void> {
       }
     }
 
-    core.debug(`GitHub Object: ${stringify(github.context)}`);
-
     const octokit = github.getOctokit(token);
 
     const context = github.context;
@@ -103,7 +101,7 @@ async function run(): Promise<void> {
 
     } while (count > 0);
 
-    core.debug(`Releases: ${stringify(releases)}`);
+    core.debug(`Releases: ${JSON.stringify(releases)}`);
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
 

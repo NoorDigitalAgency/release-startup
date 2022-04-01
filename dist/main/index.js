@@ -141,7 +141,6 @@ function run() {
                     throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
                 }
             }
-            core.debug(`GitHub Object: ${(0, flatted_1.stringify)(github.context)}`);
             const octokit = github.getOctokit(token);
             const context = github.context;
             if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
@@ -156,7 +155,7 @@ function run() {
                 releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at), published: !release.draft })));
                 page++;
             } while (count > 0);
-            core.debug(`Releases: ${(0, flatted_1.stringify)(releases)}`);
+            core.debug(`Releases: ${JSON.stringify(releases)}`);
             const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
             core.info(`Previous version: '${previousVersion !== null && previousVersion !== void 0 ? previousVersion : ''}'`);
             const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => a.creation - b.creation)
