@@ -141,6 +141,8 @@ async function run(): Promise<void> {
 
       let head = hotfix ? reference : null;
 
+      let branchName = '';
+
       if (!hotfix) {
 
         const ref = detached ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
@@ -158,13 +160,32 @@ async function run(): Promise<void> {
 
         core.debug(`SHA: '${sha}'`);
 
-        const branchName = `release-startup-${sha}-branch`;
+        branchName = `release-startup-${sha}-branch`;
 
         core.debug(`Temporary Branch Name: '${branchName}'`);
 
         await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
 
         head = branchName;
+      }
+
+      async function deleteTempBranch() {
+
+        if (!hotfix) {
+
+          core.debug(`Attempting to delete the temporary branch '${branchName}'`);
+
+          try {
+
+            await octokit.rest.git.deleteRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `refs/heads/${branchName}` });
+
+            core.debug(`Branch '${branchName}' deleted.`);
+
+          } catch (error) {
+
+            if (error instanceof Error) core.warning(error.message);
+          }
+        }
       }
 
       core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
@@ -192,6 +213,8 @@ async function run(): Promise<void> {
       core.debug(`Mergeable: ${pull.mergeable}`);
 
       if (!pull.mergeable) {
+
+        await deleteTempBranch();
 
         await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
 
@@ -223,17 +246,21 @@ async function run(): Promise<void> {
 
         await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
 
+        await deleteTempBranch();
+
         throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
       }
 
       Promise.all(requests);
+
+      await deleteTempBranch();
     }
 
   } catch (error) {
 
     core.debug(`Error: ${stringify(error)}`);
 
-    if (error instanceof Error) core.setFailed(error.message)
+    if (error instanceof Error) core.setFailed(error.message);
   }
 }
 

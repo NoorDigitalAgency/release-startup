@@ -176,6 +176,7 @@ function run() {
             }
             else {
                 let head = hotfix ? reference : null;
+                let branchName = '';
                 if (!hotfix) {
                     const ref = detached ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
                     if (typeof ref !== 'string') {
@@ -185,10 +186,25 @@ function run() {
                     const gitReference = (yield octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${ref}` })).data;
                     const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (yield octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
                     core.debug(`SHA: '${sha}'`);
-                    const branchName = `release-startup-${sha}-branch`;
+                    branchName = `release-startup-${sha}-branch`;
                     core.debug(`Temporary Branch Name: '${branchName}'`);
                     yield octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
                     head = branchName;
+                }
+                function deleteTempBranch() {
+                    return __awaiter(this, void 0, void 0, function* () {
+                        if (!hotfix) {
+                            core.debug(`Attempting to delete the temporary branch '${branchName}'`);
+                            try {
+                                yield octokit.rest.git.deleteRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `refs/heads/${branchName}` });
+                                core.debug(`Branch '${branchName}' deleted.`);
+                            }
+                            catch (error) {
+                                if (error instanceof Error)
+                                    core.warning(error.message);
+                            }
+                        }
+                    });
                 }
                 core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
                 if (typeof head !== 'string') {
@@ -204,6 +220,7 @@ function run() {
                 }
                 core.debug(`Mergeable: ${pull.mergeable}`);
                 if (!pull.mergeable) {
+                    yield deleteTempBranch();
                     yield octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
                 }
@@ -221,9 +238,11 @@ function run() {
                 }
                 else {
                     yield octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
+                    yield deleteTempBranch();
                     throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
                 }
                 Promise.all(requests);
+                yield deleteTempBranch();
             }
         }
         catch (error) {
