@@ -2,27 +2,27 @@ name: 'Release Startup'
 description: 'Release Startup GitHub Action'
 author: 'Rojan Gh.'
 inputs:
-  github_token:
+  token:
     required: true
-    description: 'GitHub token'
+    description: Token
   stage:
     required: true
-    description: 'Target stage'
+    description: Target stage
   reference:
     required: false
-    description: 'Git reference'
+    description: Git reference
     default: ''
   hotfix:
     required: false
-    description: 'If it is a hotfix'
-    default: "false"
+    description: Is a hotfix
+    default: 'false'
 outputs:
   reference:
-    description: 'Git reference'
+    description: Git reference
   version:
-    description: 'Release version'
+    description: Release version
   previousVersion:
-    description: 'Previous release version'
+    description: Previous version
 runs:
   using: 'node16'
   main: 'dist/index.js'

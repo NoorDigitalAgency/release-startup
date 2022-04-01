@@ -105,14 +105,15 @@ const flatted_1 = __nccwpck_require__(8048);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const token = core.getInput('github_token');
+            core.info('Starting up...');
+            const token = core.getInput('token');
             core.debug(`Token: '${token}'`);
             const stage = core.getInput('stage', { required: true });
-            core.debug(`Stage: '${stage}'`);
+            core.info(`Stage is: '${stage}'`);
             const reference = core.getInput('reference');
-            core.debug(`Reference: '${reference}'`);
+            core.info(`Reference is: '${reference}'`);
             const hotfix = core.getBooleanInput('hotfix');
-            core.debug(`Hotfix: ${hotfix}`);
+            core.info(`Hotfix is: ${hotfix}`);
             if (!['production', 'beta', 'alpha'].includes(stage)) {
                 throw new Error(`Invalid stage name '${stage}'.`);
             }
@@ -120,9 +121,9 @@ function run() {
                 throw new Error(`A hotfix can only be released on 'production' but '${stage}' is specified as the stage.`);
             }
             const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
-            core.debug(`Target: '${target}'`);
+            core.info(`Target of release: '${target}'`);
             const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
-            core.debug(`Source: '${source}'`);
+            core.info(`Source of release: '${source}'`);
             if (reference === target) {
                 throw new Error(`Cannot reference '${reference}' while releasing to ${stage}.`);
             }
@@ -142,9 +143,7 @@ function run() {
                 }
             }
             core.debug(`GitHub Object: ${(0, flatted_1.stringify)(github)}`);
-            core.debug('Creating Octokit...');
             const octokit = github.getOctokit(token);
-            core.debug('Octokit Created.');
             const context = github.context;
             if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
@@ -155,29 +154,32 @@ function run() {
             do {
                 const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
                 count = pagedReleases.length;
-                releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
+                releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at), published: !release.draft })));
                 page++;
             } while (count > 0);
             core.debug(`Releases: ${(0, flatted_1.stringify)(releases)}`);
-            const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
-            core.debug(`Previous Version: '${previousVersion}'`);
-            const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
+            const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
+            core.info(`Previous version: '${previousVersion !== null && previousVersion !== void 0 ? previousVersion : ''}'`);
+            const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => a.creation - b.creation)
                 .map(release => release.tag).pop();
             core.debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
-            const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
+            const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => a.creation - b.creation)
                 .map(release => release.tag).pop();
             core.debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
-            core.debug(`Version: '${version}'`);
+            core.info(`Version: '${version}'`);
             core.setOutput('version', version);
-            core.setOutput('previousVersion', previousVersion);
-            if (!hotfix && !detached && target === source) {
-                core.setOutput('reference', source);
-                core.debug(`Reference: '${reference}'`);
+            core.setOutput('previous-version', previousVersion);
+            if (stage === 'alpha') {
+                core.info(`Reference: '${detached ? reference : 'develop'}'`);
+                core.setOutput('reference', 'develop');
             }
             else {
-                const head = detached || hotfix ? reference : source;
+                const head = detached || hotfix ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
                 core.debug(`Head: '${head}'`);
+                if (typeof head !== 'string') {
+                    throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
+                }
                 const title = `Generated PR for ${hotfix ? 'hotfix' : stage}/${version}`;
                 const body = `A pull request generated by [release-startup](https://github.com/NoorDigitalAgency/release-startup "Release automation startup tasks") action for **${hotfix ? 'hotfix' : stage}** release version **${version}**.`;
                 core.debug(`Title: '${title}'`);
@@ -193,12 +195,14 @@ function run() {
                 }
                 const requests = [];
                 if (hotfix) {
+                    core.info(`Creating merge requests for 'develop' and 'release' branches.`);
                     requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title, body }));
                     requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title, body }));
                 }
                 const merge = (yield octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
                 core.debug(`Merged: ${merge.merged}`);
                 if (merge.merged) {
+                    core.info(`Reference: '${reference}'`);
                     core.setOutput('reference', merge.sha);
                 }
                 else {

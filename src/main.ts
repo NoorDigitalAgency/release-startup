@@ -10,7 +10,7 @@ async function run(): Promise<void> {
 
     core.info('Starting up...');
 
-    const token = core.getInput('github_token');
+    const token = core.getInput('token');
 
     core.debug(`Token: '${token}'`);
 
@@ -99,7 +99,7 @@ async function run(): Promise<void> {
 
       count = pagedReleases.length;
 
-      releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at) })));
+      releases.push(...pagedReleases.map(release => ({ tag: release.tag_name, branch: release.target_commitish, creation: Date.parse(release.created_at), published: !release.draft })));
 
       page++;
 
@@ -107,17 +107,17 @@ async function run(): Promise<void> {
 
     core.debug(`Releases: ${stringify(releases)}`);
 
-    const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => b.creation - a.creation).reverse().map(release => release.tag).pop();
+    const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
 
-    core.info(`Previous version: '${previousVersion}'`);
+    core.info(`Previous version: '${previousVersion ?? ''}'`);
 
-    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => b.creation - a.creation).reverse()
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => a.creation - b.creation)
 
       .map(release => release.tag).pop();
 
     core.debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
-    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => b.creation - a.creation).reverse()
+    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => a.creation - b.creation)
 
       .map(release => release.tag).pop();
 
@@ -129,19 +129,24 @@ async function run(): Promise<void> {
 
     core.setOutput('version', version);
 
-    core.setOutput('previousVersion', previousVersion);
+    core.setOutput('previous-version', previousVersion);
 
-    if (!hotfix && !detached && target === source) {
+    if (stage === 'alpha') {
 
-      core.info(`Reference: '${reference}'`);
+      core.info(`Reference: '${ detached ? reference : 'develop'}'`);
 
-      core.setOutput('reference', source);
+      core.setOutput('reference', 'develop');
 
     } else {
 
-      const head = detached || hotfix ? reference : source;
+      const head = detached || hotfix ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
 
       core.debug(`Head: '${head}'`);
+
+      if (typeof head !== 'string') {
+
+        throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
+      }
 
       const title = `Generated PR for ${hotfix ? 'hotfix' : stage}/${version}`;
 
