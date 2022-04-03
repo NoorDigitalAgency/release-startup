@@ -1,10 +1,10 @@
-# Release Startup Action
+# Dawn, the multistage release semantic versioning action
 
 Used for:
 - Merging the code needed for the release
 - Getting the reference to the commit meant for the release
-- Generating the release's version information
-- Extracting the previous release's version information from the change log generation
+- Generating the release's semantic version information
+- Extracting the previous release's version information for the change log generation
 
 Usage:
 ```yaml
