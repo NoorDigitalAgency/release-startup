@@ -1,5 +1,5 @@
-name: 'Release Startup'
-description: 'Release Startup GitHub Action'
+name: 'Dawn'
+description: 'Dawn, the multistage release semantic versioning action'
 author: 'Rojan Gh.'
 inputs:
   token:
