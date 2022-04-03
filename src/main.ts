@@ -159,7 +159,7 @@ async function run(): Promise<void> {
 
       if (typeof previousVersion === 'string' && (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status !== 'ahead') {
 
-        throw new Error(`Head of 'develop' is not ahead of the previous release '${previousVersion}'.`);
+        throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
       }
 
       core.info(`Reference: '${ detached ? reference : 'develop'}'`);
@@ -186,6 +186,11 @@ async function run(): Promise<void> {
         const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (await octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
 
         core.debug(`SHA: '${sha}'`);
+
+        if ((await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status !== 'ahead') {
+
+          throw new Error(`Reference '${reference}' is not ahead of the branch '${target}'.`);
+        }
 
         const branchName = `temp-${sha}-release-startup`;
 
