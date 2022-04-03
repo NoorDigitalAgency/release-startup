@@ -192,7 +192,7 @@ async function run(): Promise<void> {
 
         if ((await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status !== 'ahead') {
 
-          throw new Error(`Reference '${reference}' is not ahead of the branch '${target}'.`);
+          throw new Error(`'${detached ? `Reference ${reference}` : `Version ${ref}`}' is not ahead of the branch '${target}'.`);
         }
 
         const branchName = `temp-${sha}-release-startup`;
