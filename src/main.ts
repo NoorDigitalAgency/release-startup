@@ -159,7 +159,7 @@ async function run(): Promise<void> {
 
         core.debug(`Status #1: '${status}'`);
 
-        if (!['ahead', 'diverged'].includes(status)) {
+        if (status !== 'ahead') {
 
           throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
         }
@@ -171,7 +171,7 @@ async function run(): Promise<void> {
 
         core.debug(`Status #2: '${status}'`);
 
-        if (!['ahead', 'diverged'].includes(status)) {
+        if (status !== 'ahead') {
 
           throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
         }
@@ -204,15 +204,6 @@ async function run(): Promise<void> {
 
         core.debug(`SHA: '${sha}'`);
 
-        const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status;
-
-        core.debug(`Status #3: '${status}'`);
-
-        if (!['ahead', 'diverged'].includes(status)) {
-
-          throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
-        }
-
         const branchName = `temp-${sha}-release-startup`;
 
         core.debug(`Temporary Branch Name: '${branchName}'`);
@@ -224,6 +215,15 @@ async function run(): Promise<void> {
         core.saveState('delete', true);
 
         head = branchName;
+
+        const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head, base: target })).data.status;
+
+        core.debug(`Status #3: '${status}'`);
+
+        if (status !== 'ahead') {
+
+          throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
+        }
       }
 
       core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
