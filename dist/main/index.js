@@ -103,7 +103,6 @@ const io_1 = __nccwpck_require__(7436);
 const artifact_1 = __nccwpck_require__(2605);
 const functions_1 = __nccwpck_require__(358);
 const util_1 = __nccwpck_require__(3837);
-const crypto_1 = __nccwpck_require__(6113);
 const fs_1 = __nccwpck_require__(7147);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -274,7 +273,7 @@ function run() {
             }
             if (artifact) {
                 core.debug('Attempting to start the artifact creation.');
-                const file = `rs-${(0, crypto_1.randomUUID)()}.json`;
+                const file = 'release-startup-outputs-artifact.json';
                 core.debug(`Artifact File: ${file}`);
                 (0, fs_1.writeFileSync)(file, JSON.stringify({ version, previousVersion, reference: gitReference }));
                 core.debug('Created artifact file.');

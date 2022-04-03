@@ -4,7 +4,6 @@ import { rmRF } from '@actions/io';
 import { create } from '@actions/artifact';
 import { wait, versioning } from './functions';
 import { inspect as stringify } from 'util';
-import { randomUUID } from 'crypto';
 import { writeFileSync } from 'fs';
 
 async function run(): Promise<void> {
@@ -310,7 +309,7 @@ async function run(): Promise<void> {
 
       core.debug('Attempting to start the artifact creation.');
 
-      const file = `rs-${randomUUID()}.json`;
+      const file = 'release-startup-outputs-artifact.json';
 
       core.debug(`Artifact File: ${file}`);
 
