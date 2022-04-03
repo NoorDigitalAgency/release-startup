@@ -159,7 +159,7 @@ async function run(): Promise<void> {
 
         core.debug(`Status #1: '${status}'`);
 
-        if (status !== 'ahead') {
+        if (!['ahead', 'diverged'].includes(status)) {
 
           throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
         }
@@ -171,7 +171,7 @@ async function run(): Promise<void> {
 
         core.debug(`Status #2: '${status}'`);
 
-        if (status !== 'ahead') {
+        if (!['ahead', 'diverged'].includes(status)) {
 
           throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
         }
@@ -206,9 +206,9 @@ async function run(): Promise<void> {
 
         const branchName = `temp-${sha}-release-startup`;
 
-        core.debug(`Temporary Branch Name: '${branchName}'`);
-
         await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
+
+        core.debug(`Temporary Branch Name: '${branchName}'`);
 
         core.saveState('branch', branchName);
 
@@ -220,7 +220,7 @@ async function run(): Promise<void> {
 
         core.debug(`Status #3: '${status}'`);
 
-        if (status !== 'ahead') {
+        if (!['ahead', 'diverged'].includes(status)) {
 
           throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
         }
