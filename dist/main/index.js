@@ -248,40 +248,52 @@ function run() {
                     yield octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
                 }
-                try {
-                    yield Promise.all(requests);
-                }
-                catch (error) {
-                    core.warning('Problem in creating merge-back pull requests for hotfix.');
-                    core.startGroup('Merge-Back Pull Request Error');
-                    core.debug(`${(0, util_1.inspect)(error, { depth: 5 })}`);
-                    core.endGroup();
-                }
                 if (exports) {
+                    core.debug('Attempting to export the environment varibales.');
                     core.exportVariable('RELEASE_STARTUP_VERSION', version);
                     core.exportVariable('RELEASE_STARTUP_PREVIOUS_VERSION', previousVersion);
                     core.exportVariable('RELEASE_STARTUP_GIT_REFERENCE', reference);
+                    core.debug('Exported the environment varibales.');
                 }
                 if (artifact) {
+                    core.debug('Attempting to start the artifact creation.');
                     const file = `rs-${(0, crypto_1.randomUUID)()}.json`;
                     core.debug(`Artifact File: ${file}`);
                     (0, fs_1.writeFileSync)(file, JSON.stringify({ version, previousVersion, reference }));
+                    core.debug('Created artifact file.');
                     const client = (0, artifact_1.create)();
                     try {
+                        core.debug('Attempting to upload the artifact file.');
                         yield client.uploadArtifact('release-startup-outputs', [file], '.', { retentionDays: 1, continueOnError: false });
+                        core.debug('Artifact file uploaded.');
                     }
                     catch (error) {
                         core.startGroup('Artifact Error');
                         core.debug(`${(0, util_1.inspect)(error, { depth: 5 })}`);
                         core.endGroup();
-                        throw new Error('Problem in creating outputs artifact.');
+                        throw new Error('Problem in uploading the artifact file.');
                     }
                     try {
+                        core.debug('Attempting to delete the artifact file.');
                         (0, io_1.rmRF)(file);
+                        core.debug('Artifact file deleted.');
                     }
                     catch (error) {
                         core.warning('Problem in deleting the artifact file.');
                         core.startGroup('Artifact File Deletion Error');
+                        core.debug(`${(0, util_1.inspect)(error, { depth: 5 })}`);
+                        core.endGroup();
+                    }
+                    try {
+                        if (requests.length > 0) {
+                            core.debug('Waiting for creation of merge-back pull requests for hotfix.');
+                            yield Promise.all(requests);
+                            core.debug('Merge-back pull requests for hotfix created.');
+                        }
+                    }
+                    catch (error) {
+                        core.warning('Problem in creating merge-back pull requests for hotfix.');
+                        core.startGroup('Merge-Back Pull Request Error');
                         core.debug(`${(0, util_1.inspect)(error, { depth: 5 })}`);
                         core.endGroup();
                     }
