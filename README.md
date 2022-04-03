@@ -8,51 +8,20 @@ Used for:
 
 Usage:
 ```yaml
-name: Startup
-on:
-  workflow_call:
-    inputs:
-      stage:
-        description: Stage
-        type: string
-        required: true
-      reference:
-        description: Reference
-        type: string
-        default: ''
-      hotfix:
-        description: Is a hotfix
-        type: boolean
-        default: false
-    outputs:
-      release-version:
-        description: The version information generated to be used for the release
-        value: ${{ jobs.startup.outputs.version }}
-      previous-release-version:
-        description: The previous version information used for generating change logs
-        value: ${{ jobs.startup.outputs.previous-version }}
-jobs:
-  startup:
-    runs-on: ubuntu-20.04
-    name: Startup
-    outputs:
-      version: ${{ steps.startup.outputs.version }}
-      previous-version: ${{ steps.startup.outputs.previous-version }}
     steps:
-      - uses: actions/checkout@v2
-        name: Initial Checkout
-      - uses: NoorDigitalAgency/release-startup@main
-        id: startup
-        name: Startup
+      - uses: NoorDigitalAgency/dawn@main
+        id: dawn
+        name: Dawn
         with:
-          stage: ${{ inputs.stage }} # What stage is the release targeting (main for hotfixes)
-          reference: ${{ inputs.reference }} # If the release's source is anything other than the previous stage's latest release
-          hotfix: ${{ inputs.hotfix }} # If it is a hotfix release or not
-          token: ${{ github.token }} # GitHub token for accessing the APIs
+          stage: 'alpha' # What stage is the release targeting (alpha, beta and production)
+          reference: '' # If the release's source is anything other than the previous stage's latest release
+          hotfix: flase # If it is a hotfix release (stage must be production)
+          token: ${{ secrets.pat }} # Private access token with read and write access to the repository
+          exports: true # If true, the outputs will be exported as environment variables
+          artifact: true # If true, the outputs will be exported as an artifact
       - uses: actions/checkout@v2
-        name: Release Checkout
+        name: Checkout
         with:
-          ref: ${{ steps.startup.outputs.reference }}
+          ref: ${{ env.DAWN_REFERENCE }}
           submodules: 'recursive'
-
 ```
