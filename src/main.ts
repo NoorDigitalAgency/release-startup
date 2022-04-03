@@ -204,7 +204,7 @@ async function run(): Promise<void> {
 
         core.debug(`SHA: '${sha}'`);
 
-        const branchName = `temp-${sha}-release-startup`;
+        const branchName = `dawn-action-${sha}`;
 
         await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
 
