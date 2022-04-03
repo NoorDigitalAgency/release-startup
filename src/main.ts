@@ -261,7 +261,7 @@ async function run(): Promise<void> {
 
       try {
 
-        Promise.all(requests);
+        await Promise.all(requests);
 
       } catch (error) {
 
@@ -287,13 +287,41 @@ async function run(): Promise<void> {
 
         const file = `rs-${randomUUID()}.json`;
 
+        core.debug(`Artifact File: ${file}`);
+
         writeFileSync(file, JSON.stringify({ version, previousVersion, reference }));
 
         const client = create();
 
-        await client.uploadArtifact('release-startup-outputs', [file], '.', { retentionDays: 1, continueOnError: false });
+        try {
 
-        rmRF(file);
+          await client.uploadArtifact('release-startup-outputs', [file], '.', { retentionDays: 1, continueOnError: false });
+
+        } catch (error) {
+
+          core.startGroup('Artifact Error');
+
+          core.debug(`${stringify(error, { depth: 5 })}`);
+
+          core.endGroup();
+
+          throw new Error('Problem in creating outputs artifact.');
+        }
+
+        try {
+
+          rmRF(file);
+  
+        } catch (error) {
+  
+          core.warning('Problem in deleting the artifact file.');
+  
+          core.startGroup('Artifact File Deletion Error');
+  
+          core.debug(`${stringify(error, { depth: 5 })}`);
+  
+          core.endGroup();
+        }
       }
     }
 
