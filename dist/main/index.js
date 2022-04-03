@@ -185,11 +185,19 @@ function run() {
             core.saveState('delete', false);
             let gitReference;
             if (stage === 'alpha') {
-                if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string' && (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status !== 'ahead') {
-                    throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
+                if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string') {
+                    const status = (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status;
+                    core.debug(`Status #1: '${status}'`);
+                    if (!['ahead', 'diverged'].includes(status)) {
+                        throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
+                    }
                 }
-                if (typeof previousVersion === 'string' && (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status !== 'ahead') {
-                    throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
+                if ((reference === '' || reference === 'develop') && typeof previousVersion === 'string') {
+                    const status = (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status;
+                    core.debug(`Status #2: '${status}'`);
+                    if (!['ahead', 'diverged'].includes(status)) {
+                        throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
+                    }
                 }
                 gitReference = detached ? reference : 'develop';
                 core.info(`Reference: '${gitReference}'`);
@@ -206,8 +214,10 @@ function run() {
                     const gitReference = (yield octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${ref}` })).data;
                     const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (yield octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
                     core.debug(`SHA: '${sha}'`);
-                    if ((yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status !== 'ahead') {
-                        throw new Error(`'${detached ? `Reference ${reference}` : `Version ${ref}`}' is not ahead of the branch '${target}'.`);
+                    const status = (yield octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status;
+                    core.debug(`Status #3: '${status}'`);
+                    if (!['ahead', 'diverged'].includes(status)) {
+                        throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
                     }
                     const branchName = `temp-${sha}-release-startup`;
                     core.debug(`Temporary Branch Name: '${branchName}'`);

@@ -153,14 +153,28 @@ async function run(): Promise<void> {
 
     if (stage === 'alpha') {
 
-      if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string' && (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status !== 'ahead') {
+      if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string') {
 
-        throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
+        const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status;
+
+        core.debug(`Status #1: '${status}'`);
+
+        if (!['ahead', 'diverged'].includes(status)) {
+
+          throw new Error(`Reference '${reference}' is not ahead of the previous release '${previousVersion}'.`);
+        }
       }
 
-      if (typeof previousVersion === 'string' && (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status !== 'ahead') {
+      if ((reference === '' || reference === 'develop') && typeof previousVersion === 'string') {
 
-        throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
+        const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status;
+
+        core.debug(`Status #2: '${status}'`);
+
+        if (!['ahead', 'diverged'].includes(status)) {
+
+          throw new Error(`No new changes in 'develop' since release version '${previousVersion}'.`);
+        }
       }
 
       gitReference = detached ? reference : 'develop';
@@ -190,9 +204,13 @@ async function run(): Promise<void> {
 
         core.debug(`SHA: '${sha}'`);
 
-        if ((await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status !== 'ahead') {
+        const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: sha, base: target })).data.status;
 
-          throw new Error(`'${detached ? `Reference ${reference}` : `Version ${ref}`}' is not ahead of the branch '${target}'.`);
+        core.debug(`Status #3: '${status}'`);
+
+        if (!['ahead', 'diverged'].includes(status)) {
+
+          throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
         }
 
         const branchName = `temp-${sha}-release-startup`;
