@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as github from '@actions/github';
 import { wait, versioning } from './functions';
-import { stringify } from 'flatted';
+import { inspect as stringify } from 'util';
 
 async function run(): Promise<void> {
 
@@ -80,7 +80,7 @@ async function run(): Promise<void> {
 
     core.startGroup('GitHub Context');
 
-    core.debug(JSON.stringify(context));
+    core.debug(stringify(context, { depth: 5 }));
 
     core.endGroup();
 
@@ -116,7 +116,7 @@ async function run(): Promise<void> {
 
     core.startGroup('Releases');
 
-    core.debug(`Releases: ${JSON.stringify(releases)}`);
+    core.debug(`Releases: ${stringify(releases)}`);
 
     core.endGroup();
 
@@ -268,7 +268,7 @@ async function run(): Promise<void> {
 
     core.startGroup('Error');
 
-    core.debug(`Error: ${stringify(error)}`);
+    core.debug(`Error: ${stringify(error, { depth: 5 })}`);
 
     core.endGroup();
 
