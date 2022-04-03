@@ -16,6 +16,14 @@ inputs:
     required: false
     description: Is a hotfix
     default: 'false'
+  exports:
+    required: false
+    description: Export outputs as environment veriables
+    default: 'true'
+  artifact:
+    required: false
+    description: Store outputs in artifact
+    default: 'true'
 outputs:
   reference:
     description: Git reference

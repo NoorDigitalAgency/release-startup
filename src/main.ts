@@ -1,8 +1,11 @@
 import * as core from '@actions/core';
-import * as exec from '@actions/exec';
 import * as github from '@actions/github';
+import { rmRF } from '@actions/io';
+import { create } from '@actions/artifact';
 import { wait, versioning } from './functions';
 import { inspect as stringify } from 'util';
+import { randomUUID } from 'crypto';
+import { writeFileSync } from 'fs';
 
 async function run(): Promise<void> {
 
@@ -24,6 +27,14 @@ async function run(): Promise<void> {
 
     core.info(`Hotfix is: ${hotfix}`);
 
+    const exports = core.getBooleanInput('exports');
+
+    core.info(`Exports is: ${exports}`);
+
+    const artifact = core.getBooleanInput('artifact');
+
+    core.info(`Artifact is: ${artifact}`);
+
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
       throw new Error(`Invalid stage name '${stage}'.`);
@@ -44,7 +55,7 @@ async function run(): Promise<void> {
 
     if (reference === target) {
 
-      throw new Error(`Cannot reference '${reference}' while releasing to ${stage}.`);
+      throw new Error(`Cannot reference '${reference}' while releasing to '${stage}'.`);
     }
 
     if (stage === 'beta' && reference !== '' && !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(reference)) {
@@ -56,24 +67,6 @@ async function run(): Promise<void> {
 
     core.debug(`Detached: ${detached}`);
 
-    if (detached) {
-
-      core.debug(`Git Fetch All: ${(await exec.getExecOutput('git', ['fetch', '--all'])).stdout}`);
-
-      const exists = (await exec.getExecOutput('git', ['branch', '-r', '--contains', reference]))
-
-        .stdout.split('\n').filter(line => line.trim() !== '').map(line => line.trim().split('/').pop())
-
-        .includes(source);
-
-      core.debug(`Exists: ${exists}`);
-
-      if (!exists) {
-
-        throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
-      }
-    }
-
     const octokit = github.getOctokit(token);
 
     const context = github.context;
@@ -83,6 +76,11 @@ async function run(): Promise<void> {
     core.debug(stringify(context, { depth: 5 }));
 
     core.endGroup();
+
+    if (detached && !['behind', 'identical'].includes((await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, base: source, head: reference })).data.status)) {
+
+      throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
+    }
 
     if ((await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== source)) {
 
@@ -261,14 +259,49 @@ async function run(): Promise<void> {
         throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
       }
 
-      Promise.all(requests);
+      try {
+
+        Promise.all(requests);
+
+      } catch (error) {
+
+        core.warning('Problem in creating merge-back pull requests for hotfix.');
+
+        core.startGroup('Merge-Back Pull Request Error');
+
+        core.debug(`${stringify(error, { depth: 5 })}`);
+
+        core.endGroup();
+      }
+
+      if (exports) {
+
+        core.exportVariable('RELEASE_STARTUP_VERSION', version);
+
+        core.exportVariable('RELEASE_STARTUP_PREVIOUS_VERSION', previousVersion);
+
+        core.exportVariable('RELEASE_STARTUP_GIT_REFERENCE', reference);
+      }
+
+      if (artifact) {
+
+        const file = `rs-${randomUUID()}.json`;
+
+        writeFileSync(file, JSON.stringify({ version, previousVersion, reference }));
+
+        const client = create();
+
+        await client.uploadArtifact('release-startup-outputs', [file], '.', { retentionDays: 1, continueOnError: false });
+
+        rmRF(file);
+      }
     }
 
   } catch (error) {
 
     core.startGroup('Error');
 
-    core.debug(`Error: ${stringify(error, { depth: 5 })}`);
+    core.debug(`${stringify(error, { depth: 5 })}`);
 
     core.endGroup();
 
