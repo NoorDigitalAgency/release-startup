@@ -318,11 +318,11 @@ async function run(): Promise<void> {
 
       core.debug('Attempting to export the environment varibales.');
 
-      core.exportVariable('DAWN_VERSION', version);
+      core.exportVariable('RELEASE_VERSION', version);
 
-      core.exportVariable('DAWN_PREVIOUS_VERSION', previousVersion);
+      core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
 
-      core.exportVariable('DAWN_REFERENCE', gitReference);
+      core.exportVariable('RELEASE_REFERENCE', gitReference);
 
       core.debug('Exported the environment varibales.');
     }

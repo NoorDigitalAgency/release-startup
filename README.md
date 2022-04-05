@@ -22,6 +22,6 @@ Usage:
       - uses: actions/checkout@v2
         name: Checkout
         with:
-          ref: ${{ env.DAWN_REFERENCE }}
+          ref: ${{ env.RELEASE_REFERENCE }}
           submodules: 'recursive'
 ```
