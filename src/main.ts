@@ -10,7 +10,7 @@ async function run(): Promise<void> {
 
   try {
 
-    const token = core.getInput('token');
+    const token = core.getInput('token', { required: true });
 
     core.debug(`Token: '${token}'`);
 

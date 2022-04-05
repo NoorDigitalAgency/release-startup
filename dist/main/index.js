@@ -107,7 +107,7 @@ const fs_1 = __nccwpck_require__(7147);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const token = core.getInput('token');
+            const token = core.getInput('token', { required: true });
             core.debug(`Token: '${token}'`);
             const stage = core.getInput('stage', { required: true });
             core.info(`Stage is: '${stage}'`);
