@@ -27,7 +27,7 @@ inputs:
   artifact_name:
     required: false
     description: Artifact name
-    default: 'true'
+    default: dawn-outputs
 outputs:
   reference:
     description: Git reference
