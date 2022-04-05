@@ -119,6 +119,8 @@ function run() {
             core.info(`Exports is: ${exports}`);
             const artifact = core.getBooleanInput('artifact');
             core.info(`Artifact is: ${artifact}`);
+            const artifactName = core.getInput('artifact_name');
+            core.info(`Artifact Name is: ${artifactName}`);
             if (!['production', 'beta', 'alpha'].includes(stage)) {
                 throw new Error(`Invalid stage name '${stage}'.`);
             }
@@ -283,14 +285,14 @@ function run() {
             }
             if (artifact) {
                 core.debug('Attempting to start the artifact creation.');
-                const file = 'dawn-outputs.json';
+                const file = `${artifactName}.json`;
                 core.debug(`Artifact File: ${file}`);
                 (0, fs_1.writeFileSync)(file, JSON.stringify({ version, previousVersion, reference: gitReference }));
                 core.debug('Created artifact file.');
                 const client = (0, artifact_1.create)();
                 try {
                     core.debug('Attempting to upload the artifact file.');
-                    yield client.uploadArtifact('dawn-outputs', [file], '.', { retentionDays: 1, continueOnError: false });
+                    yield client.uploadArtifact(artifactName, [file], '.', { retentionDays: 1, continueOnError: false });
                     core.debug('Artifact file uploaded.');
                 }
                 catch (error) {

@@ -24,6 +24,10 @@ inputs:
     required: false
     description: Store outputs in artifact
     default: 'true'
+  artifact_name:
+    required: false
+    description: Artifact name
+    default: 'true'
 outputs:
   reference:
     description: Git reference

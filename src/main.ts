@@ -34,6 +34,10 @@ async function run(): Promise<void> {
 
     core.info(`Artifact is: ${artifact}`);
 
+    const artifactName = core.getInput('artifact_name');
+
+    core.info(`Artifact Name is: ${artifactName}`);
+
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
       throw new Error(`Invalid stage name '${stage}'.`);
@@ -327,7 +331,7 @@ async function run(): Promise<void> {
 
       core.debug('Attempting to start the artifact creation.');
 
-      const file = 'dawn-outputs.json';
+      const file = `${artifactName}.json`;
 
       core.debug(`Artifact File: ${file}`);
 
@@ -341,7 +345,7 @@ async function run(): Promise<void> {
 
         core.debug('Attempting to upload the artifact file.');
 
-        await client.uploadArtifact('dawn-outputs', [file], '.', { retentionDays: 1, continueOnError: false });
+        await client.uploadArtifact(artifactName, [file], '.', { retentionDays: 1, continueOnError: false });
 
         core.debug('Artifact file uploaded.');
 
