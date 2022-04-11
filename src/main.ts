@@ -1,5 +1,5 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
+import { getInput, debug, info, getBooleanInput, startGroup, endGroup, setOutput, saveState, warning, exportVariable, setFailed, notice } from '@actions/core';
+import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { create } from '@actions/artifact';
 import { wait, versioning } from './functions';
@@ -10,33 +10,33 @@ async function run(): Promise<void> {
 
   try {
 
-    const token = core.getInput('token', { required: true });
+    const token = getInput('token', { required: true });
 
-    core.debug(`Token: '${token}'`);
+    debug(`Token: '${token}'`);
 
-    const stage = core.getInput('stage', { required: true });
+    const stage = getInput('stage', { required: true });
 
-    core.info(`Stage is: '${stage}'`);
+    info(`Stage is: '${stage}'`);
 
-    const reference = core.getInput('reference');
+    const reference = getInput('reference');
 
-    core.info(`Reference is: '${reference}'`);
+    info(`Reference is: '${reference}'`);
 
-    const hotfix = core.getBooleanInput('hotfix');
+    const hotfix = getBooleanInput('hotfix');
 
-    core.info(`Hotfix is: ${hotfix}`);
+    info(`Hotfix is: ${hotfix}`);
 
-    const exports = core.getBooleanInput('exports');
+    const exports = getBooleanInput('exports');
 
-    core.info(`Exports is: ${exports}`);
+    info(`Exports is: ${exports}`);
 
-    const artifact = core.getBooleanInput('artifact');
+    const artifact = getBooleanInput('artifact');
 
-    core.info(`Artifact is: ${artifact}`);
+    info(`Artifact is: ${artifact}`);
 
-    const artifactName = core.getInput('artifact_name');
+    const artifactName = getInput('artifact_name');
 
-    core.info(`Artifact Name is: ${artifactName}`);
+    info(`Artifact Name is: ${artifactName}`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
@@ -50,11 +50,11 @@ async function run(): Promise<void> {
 
     const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
 
-    core.info(`Target of release: '${target}'`);
+    info(`Target of release: '${target}'`);
 
     const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
 
-    core.info(`Source of release: '${source}'`);
+    info(`Source of release: '${source}'`);
 
     if (reference === target) {
 
@@ -68,17 +68,15 @@ async function run(): Promise<void> {
 
     const detached = !hotfix && reference !== '' && reference !== source;
 
-    core.debug(`Detached: ${detached}`);
+    debug(`Detached: ${detached}`);
 
-    const octokit = github.getOctokit(token);
+    const octokit = getOctokit(token);
 
-    const context = github.context;
+    startGroup('GitHub Context');
 
-    core.startGroup('GitHub Context');
+    debug(stringify(context, { depth: 5 }));
 
-    core.debug(stringify(context, { depth: 5 }));
-
-    core.endGroup();
+    endGroup();
 
     if (detached && !['behind', 'identical'].includes((await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, base: source, head: reference })).data.status)) {
 
@@ -107,37 +105,41 @@ async function run(): Promise<void> {
 
       count = pagedReleases.length;
 
-      releases.push(...pagedReleases.filter(release => release.name?.startsWith('v20')).map(release => ({ tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ?
+      releases.push(...pagedReleases.filter(release => release.name?.startsWith('v20')).map(release => ({
+        tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ?
 
-        'develop' : release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft })));
+          'develop' : release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
+      })));
 
       page++;
 
     } while (count > 0);
 
-    core.startGroup('Releases');
+    startGroup('Releases');
 
-    core.debug(`Releases: ${stringify(releases)}`);
+    debug(`Releases: ${stringify(releases)}`);
 
-    core.endGroup();
+    endGroup();
 
     const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
 
-    core.info(`Previous version: '${previousVersion ?? ''}'`);
+    info(`Previous version: '${previousVersion ?? ''}'`);
 
     const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => a.creation - b.creation)
 
       .map(release => release.tag).pop();
 
-    core.debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
+    debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
     const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => a.creation - b.creation)
 
       .map(release => release.tag).pop();
 
-    core.debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
+    debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
 
     const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
+
+    notice(`Release Version: ${version}`);
 
     if (releases.some(release => release.tag === version)) {
 
@@ -145,13 +147,13 @@ async function run(): Promise<void> {
 
     }
 
-    core.info(`Version: '${version}'`);
+    info(`Version: '${version}'`);
 
-    core.setOutput('version', version);
+    setOutput('version', version);
 
-    core.setOutput('previous_version', previousVersion);
+    setOutput('previous_version', previousVersion);
 
-    core.saveState('delete', false);
+    saveState('delete', false);
 
     let gitReference;
 
@@ -161,7 +163,7 @@ async function run(): Promise<void> {
 
         const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: reference, base: previousVersion })).data.status;
 
-        core.debug(`Status #1: '${status}'`);
+        debug(`Status #1: '${status}'`);
 
         if (!['ahead', 'diverged'].includes(status)) {
 
@@ -173,7 +175,7 @@ async function run(): Promise<void> {
 
         const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head: 'develop', base: previousVersion })).data.status;
 
-        core.debug(`Status #2: '${status}'`);
+        debug(`Status #2: '${status}'`);
 
         if (!['ahead', 'diverged'].includes(status)) {
 
@@ -183,9 +185,9 @@ async function run(): Promise<void> {
 
       gitReference = detached ? reference : 'develop';
 
-      core.info(`Reference: '${gitReference}'`);
+      info(`Reference: '${gitReference}'`);
 
-      core.setOutput('reference', gitReference);
+      setOutput('reference', gitReference);
 
     } else {
 
@@ -200,29 +202,29 @@ async function run(): Promise<void> {
           throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
         }
 
-        core.debug(`Git Ref: '${ref}'`);
+        debug(`Git Ref: '${ref}'`);
 
         const gitReference = (await octokit.rest.git.getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${ref}` })).data;
 
         const sha = gitReference.object.type === 'commit' ? gitReference.object.sha : (await octokit.rest.git.getTag({ owner: context.repo.owner, repo: context.repo.repo, tag_sha: gitReference.object.sha })).data.object.sha;
 
-        core.debug(`SHA: '${sha}'`);
+        debug(`SHA: '${sha}'`);
 
         const branchName = `dawn-action-${sha}`;
 
-        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}`});
+        await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
 
-        core.debug(`Temporary Branch Name: '${branchName}'`);
+        debug(`Temporary Branch Name: '${branchName}'`);
 
-        core.saveState('branch', branchName);
+        saveState('branch', branchName);
 
-        core.saveState('delete', true);
+        saveState('delete', true);
 
         head = branchName;
 
         const status = (await octokit.rest.repos.compareCommits({ owner: context.repo.owner, repo: context.repo.repo, head, base: target })).data.status;
 
-        core.debug(`Status #3: '${status}'`);
+        debug(`Status #3: '${status}'`);
 
         if (!['ahead', 'diverged'].includes(status)) {
 
@@ -230,7 +232,7 @@ async function run(): Promise<void> {
         }
       }
 
-      core.debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
+      debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
 
       if (typeof head !== 'string') {
 
@@ -241,7 +243,7 @@ async function run(): Promise<void> {
 
       const body = `A pull request generated by [dawn](https://github.com/NoorDigitalAgency/dawn "Dawn, the multistage release semantic versioning action") action for **${hotfix ? 'hotfix' : stage}** release version **${version}**.`;
 
-      core.debug(`Title: '${title}'`);
+      debug(`Title: '${title}'`);
 
       let pull = (await octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: target, head, title, body })).data;
 
@@ -252,11 +254,11 @@ async function run(): Promise<void> {
         pull = (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data;
       }
 
-      core.debug(`Mergeable: ${pull.mergeable}`);
+      debug(`Mergeable: ${pull.mergeable}`);
 
       if (!pull.mergeable) {
 
-        await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
+        await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
 
         throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
       }
@@ -265,7 +267,7 @@ async function run(): Promise<void> {
 
       if (hotfix) {
 
-        core.info(`Creating merge requests for 'develop' and 'release' branches.`);
+        info(`Creating merge requests for 'develop' and 'release' branches.`);
 
         requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title, body }));
 
@@ -274,19 +276,19 @@ async function run(): Promise<void> {
 
       const merge = (await octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
 
-      core.debug(`Merged: ${merge.merged}`);
+      debug(`Merged: ${merge.merged}`);
 
       if (merge.merged) {
 
-        core.info(`Reference: '${merge.sha}'`);
+        info(`Reference: '${merge.sha}'`);
 
-        core.setOutput('reference', merge.sha);
+        setOutput('reference', merge.sha);
 
         gitReference = merge.sha;
 
       } else {
 
-        await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}`});
+        await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
 
         throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
       }
@@ -295,100 +297,100 @@ async function run(): Promise<void> {
 
         if (requests.length > 0) {
 
-          core.debug('Waiting for creation of merge-back pull requests for hotfix.');
+          debug('Waiting for creation of merge-back pull requests for hotfix.');
 
           await Promise.all(requests);
 
-          core.debug('Merge-back pull requests for hotfix created.');
+          debug('Merge-back pull requests for hotfix created.');
         }
 
       } catch (error) {
 
-        core.warning('Problem in creating merge-back pull requests for hotfix.');
+        warning('Problem in creating merge-back pull requests for hotfix.');
 
-        core.startGroup('Merge-Back Pull Request Error');
+        startGroup('Merge-Back Pull Request Error');
 
-        core.debug(`${stringify(error, { depth: 5 })}`);
+        debug(`${stringify(error, { depth: 5 })}`);
 
-        core.endGroup();
+        endGroup();
       }
     }
 
     if (exports) {
 
-      core.debug('Attempting to export the environment varibales.');
+      debug('Attempting to export the environment varibales.');
 
-      core.exportVariable('RELEASE_VERSION', version);
+      exportVariable('RELEASE_VERSION', version);
 
-      core.exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
+      exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
 
-      core.exportVariable('RELEASE_REFERENCE', gitReference);
+      exportVariable('RELEASE_REFERENCE', gitReference);
 
-      core.debug('Exported the environment varibales.');
+      debug('Exported the environment varibales.');
     }
 
     if (artifact) {
 
-      core.debug('Attempting to start the artifact creation.');
+      debug('Attempting to start the artifact creation.');
 
       const file = `${artifactName}.json`;
 
-      core.debug(`Artifact File: ${file}`);
+      debug(`Artifact File: ${file}`);
 
       writeFileSync(file, JSON.stringify({ version, previousVersion, reference: gitReference }));
 
-      core.debug('Created artifact file.');
+      debug('Created artifact file.');
 
       const client = create();
 
       try {
 
-        core.debug('Attempting to upload the artifact file.');
+        debug('Attempting to upload the artifact file.');
 
         await client.uploadArtifact(artifactName, [file], '.', { retentionDays: 1, continueOnError: false });
 
-        core.debug('Artifact file uploaded.');
+        debug('Artifact file uploaded.');
 
       } catch (error) {
 
-        core.startGroup('Artifact Error');
+        startGroup('Artifact Error');
 
-        core.debug(`${stringify(error, { depth: 5 })}`);
+        debug(`${stringify(error, { depth: 5 })}`);
 
-        core.endGroup();
+        endGroup();
 
         throw new Error('Problem in uploading the artifact file.');
       }
 
       try {
 
-        core.debug('Attempting to delete the artifact file.');
+        debug('Attempting to delete the artifact file.');
 
         rmRF(file);
 
-        core.debug('Artifact file deleted.');
+        debug('Artifact file deleted.');
 
       } catch (error) {
 
-        core.warning('Problem in deleting the artifact file.');
+        warning('Problem in deleting the artifact file.');
 
-        core.startGroup('Artifact File Deletion Error');
+        startGroup('Artifact File Deletion Error');
 
-        core.debug(`${stringify(error, { depth: 5 })}`);
+        debug(`${stringify(error, { depth: 5 })}`);
 
-        core.endGroup();
+        endGroup();
       }
     }
 
   } catch (error) {
 
-    core.startGroup('Error');
+    startGroup('Error');
 
-    core.debug(`${stringify(error, { depth: 5 })}`);
+    debug(`${stringify(error, { depth: 5 })}`);
 
-    core.endGroup();
+    endGroup();
 
-    if (error instanceof Error) core.setFailed(error.message);
+    if (error instanceof Error) setFailed(error.message);
   }
 }
 
