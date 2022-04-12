@@ -106,9 +106,11 @@ async function run(): Promise<void> {
       count = pagedReleases.length;
 
       releases.push(...pagedReleases.filter(release => release.name?.startsWith('v20')).map(release => ({
-        tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ?
-
-          'develop' : release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
+        
+        tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :
+        
+        release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
+      
       })));
 
       page++;
