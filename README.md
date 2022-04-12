@@ -1,4 +1,4 @@
-# Dawn, the multistage release semantic versioning action
+# Multistage release startup action
 
 Used for:
 - Merging the code needed for the release
@@ -9,9 +9,9 @@ Used for:
 Usage:
 ```yaml
     steps:
-      - uses: NoorDigitalAgency/dawn@main
-        id: dawn
-        name: Dawn
+      - uses: NoorDigitalAgency/release-startup@main
+        id: startup
+        name: Release Startup
         with:
           stage: 'alpha' # What stage is the release targeting (alpha, beta and production)
           reference: '' # If the release's source is anything other than the previous stage's latest release
