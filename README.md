@@ -19,6 +19,7 @@ Usage:
           token: ${{ secrets.pat }} # Private access token with read and write access to the repository
           exports: true # If true, the outputs will be exported as environment variables
           artifact: true # If true, the outputs will be exported as an artifact
+          artifact_name: # The name for the results artifact
       - uses: actions/checkout@v2
         name: Checkout
         with:
