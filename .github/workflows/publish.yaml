@@ -8,9 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        ref: main
     - uses: actions/setup-node@v3
       with:
         node-version: 16.x
-    - run: npm i
-    - run: npm run all
-    - run: git push
+    - run: |
+        npm i
+        npm run all
+        git config --global user.name "Rojan Gh."
+        git config --global user.email "sojaner@github"
+        git add -A
+        git commit -m "Automated build and publish"
+        git push
