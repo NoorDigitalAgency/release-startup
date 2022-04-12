@@ -1,4 +1,4 @@
-# Multistage release startup action
+# Release Startup Action
 
 Used for:
 - Merging the code needed for the release
