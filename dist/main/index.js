@@ -224,12 +224,6 @@ function run() {
                     yield octokit.rest.pulls.update({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
                 }
-                const requests = [];
-                if (hotfix) {
-                    (0, core_1.info)(`Creating merge requests for 'develop' and 'release' branches.`);
-                    requests.push(octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'release', head, title, body }));
-                    requests.push(octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: 'develop', head, title, body }));
-                }
                 const merge = (yield octokit.rest.pulls.merge({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
                 (0, core_1.debug)(`Merged: ${merge.merged}`);
                 if (merge.merged) {
@@ -240,19 +234,6 @@ function run() {
                 else {
                     yield octokit.rest.pulls.update({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
-                }
-                try {
-                    if (requests.length > 0) {
-                        (0, core_1.debug)('Waiting for creation of merge-back pull requests for hotfix.');
-                        yield Promise.all(requests);
-                        (0, core_1.debug)('Merge-back pull requests for hotfix created.');
-                    }
-                }
-                catch (error) {
-                    (0, core_1.warning)('Problem in creating merge-back pull requests for hotfix.');
-                    (0, core_1.startGroup)('Merge-Back Pull Request Error');
-                    (0, core_1.debug)(`${(0, util_1.inspect)(error, { depth: 5 })}`);
-                    (0, core_1.endGroup)();
                 }
             }
             if (exports) {

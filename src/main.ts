@@ -106,11 +106,11 @@ async function run(): Promise<void> {
       count = pagedReleases.length;
 
       releases.push(...pagedReleases.filter(release => release.name?.startsWith('v20')).map(release => ({
-        
+
         tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :
-        
+
         release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
-      
+
       })));
 
       page++;
@@ -265,17 +265,6 @@ async function run(): Promise<void> {
         throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
       }
 
-      const requests = [];
-
-      if (hotfix) {
-
-        info(`Creating merge requests for 'develop' and 'release' branches.`);
-
-        requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'release', head, title, body }));
-
-        requests.push(octokit.rest.pulls.create({ owner: context.repo.owner, repo: context.repo.repo, base: 'develop', head, title, body }));
-      }
-
       const merge = (await octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
 
       debug(`Merged: ${merge.merged}`);
@@ -293,28 +282,6 @@ async function run(): Promise<void> {
         await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
 
         throw new Error(`Failed to merge the pull request #${pull.number} '[FAILED] ${title}'.`);
-      }
-
-      try {
-
-        if (requests.length > 0) {
-
-          debug('Waiting for creation of merge-back pull requests for hotfix.');
-
-          await Promise.all(requests);
-
-          debug('Merge-back pull requests for hotfix created.');
-        }
-
-      } catch (error) {
-
-        warning('Problem in creating merge-back pull requests for hotfix.');
-
-        startGroup('Merge-Back Pull Request Error');
-
-        debug(`${stringify(error, { depth: 5 })}`);
-
-        endGroup();
       }
     }
 
