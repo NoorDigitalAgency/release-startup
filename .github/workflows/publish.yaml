@@ -2,6 +2,11 @@ name: Publish
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Auto Merge
+    types:
+      - completed
 
 jobs:
   build:
@@ -19,5 +24,4 @@ jobs:
         git config --global user.name "Rojan Gh."
         git config --global user.email "sojaner@github"
         git add -A
-        git commit -m "Automated build and publish"
-        git push
+        git diff-index --quiet HEAD -- || git commit -m "Automated build and publish" || git push
