@@ -1,8 +1,10 @@
 name: Auto Merge
 
 on:
-  pull_request:
-    types: [labeled]
+  workflow_run:
+    workflows: ["Pre-Merge"]
+    types: 
+      - completed
 
 jobs:
   merge:
