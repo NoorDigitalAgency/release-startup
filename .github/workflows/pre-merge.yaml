@@ -1,0 +1,12 @@
+name: Pre-Merge
+
+on:
+  pull_request:
+    types: [labeled]
+    
+jobs:
+  check-dependabot:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    steps:
+      - run: echo "PR created by Dependabot"
