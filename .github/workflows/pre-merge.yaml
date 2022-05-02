@@ -6,7 +6,7 @@ on:
     
 jobs:
   check-dependabot:
-    if: github.event.label.name == 'dependencies'
+    if: github.event.label.name == 'dependencies' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - run: echo "PR created by Dependabot"
