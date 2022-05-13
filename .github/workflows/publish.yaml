@@ -1,17 +1,21 @@
 name: Publish
 
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Auto Merge
+  pull_request:
     types:
-      - completed
+      - closed
 
 jobs:
-  publish:
-    uses: NoorDigitalAgency/.github/.github/workflows/publish-action.yaml@main
-    with:
-      branch: main
-    secrets:
-      token: ${{ secrets.ACTIONS_TOKEN }}
+  #publish:
+  #  uses: NoorDigitalAgency/.github/.github/workflows/publish-action.yaml@main
+  #  with:
+  #    branch: main
+  #  secrets:
+  #    token: ${{ secrets.ACTIONS_TOKEN }}
+  test:
+    runs-on: ubuntu-x64
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            console.log(context)
