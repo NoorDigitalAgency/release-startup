@@ -1,4 +1,4 @@
-# Release Startup Action.
+# Release Startup Action
 
 Used for:
 - Merging the code needed for the release
