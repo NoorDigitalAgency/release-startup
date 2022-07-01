@@ -1,0 +1,10 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: NoorDigitalAgency/.github/.github/workflows/publish-github-action.yaml@main
+    with:
+      branch: main
