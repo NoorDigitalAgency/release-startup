@@ -143,6 +143,8 @@ async function run(): Promise<void> {
 
     const plainVersion = version.substring(1);
 
+    const extendedVersion = hotfix ? version : version.replace(/^(v20\d+\.\d+)(-(?:alpha|beta)\.\d+|)$/img, "$1.0$2");
+
     notice(`Release Version: ${version}`);
 
     if (releases.some(release => release.tag === version)) {
@@ -156,6 +158,8 @@ async function run(): Promise<void> {
     setOutput('version', version);
 
     setOutput('plain_version', plainVersion);
+
+    setOutput('extended_version', extendedVersion);
 
     setOutput('previous_version', previousVersion);
 
@@ -297,6 +301,8 @@ async function run(): Promise<void> {
 
       exportVariable('RELEASE_PLAIN_VERSION', plainVersion);
 
+      exportVariable('RELEASE_EXTENDED_VERSION', extendedVersion);
+
       exportVariable('RELEASE_PREVIOUS_VERSION', previousVersion);
 
       exportVariable('RELEASE_REFERENCE', gitReference);
@@ -312,7 +318,7 @@ async function run(): Promise<void> {
 
       debug(`Artifact File: ${file}`);
 
-      writeFileSync(file, JSON.stringify({ version, plainVersion, previousVersion, reference: gitReference }));
+      writeFileSync(file, JSON.stringify({ version, plainVersion, extendedVersion, previousVersion, reference: gitReference }));
 
       debug('Created artifact file.');
 

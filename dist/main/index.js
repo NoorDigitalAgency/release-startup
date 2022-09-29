@@ -157,6 +157,7 @@ function run() {
             (0, core_1.debug)(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
             const plainVersion = version.substring(1);
+            const extendedVersion = hotfix ? version : version.replace(/^(v20\d+\.\d+)(-(?:alpha|beta)\.\d+|)$/img, "$1.0$2");
             (0, core_1.notice)(`Release Version: ${version}`);
             if (releases.some(release => release.tag === version)) {
                 throw new Error(`Release version '${version}' already exists.`);
@@ -164,6 +165,7 @@ function run() {
             (0, core_1.info)(`Version: '${version}'`);
             (0, core_1.setOutput)('version', version);
             (0, core_1.setOutput)('plain_version', plainVersion);
+            (0, core_1.setOutput)('extended_version', extendedVersion);
             (0, core_1.setOutput)('previous_version', previousVersion);
             (0, core_1.saveState)('delete', false);
             let gitReference;
@@ -242,6 +244,7 @@ function run() {
                 (0, core_1.debug)('Attempting to export the environment varibales.');
                 (0, core_1.exportVariable)('RELEASE_VERSION', version);
                 (0, core_1.exportVariable)('RELEASE_PLAIN_VERSION', plainVersion);
+                (0, core_1.exportVariable)('RELEASE_EXTENDED_VERSION', extendedVersion);
                 (0, core_1.exportVariable)('RELEASE_PREVIOUS_VERSION', previousVersion);
                 (0, core_1.exportVariable)('RELEASE_REFERENCE', gitReference);
                 (0, core_1.debug)('Exported the environment varibales.');
@@ -250,7 +253,7 @@ function run() {
                 (0, core_1.debug)('Attempting to start the artifact creation.');
                 const file = `${artifactName}.json`;
                 (0, core_1.debug)(`Artifact File: ${file}`);
-                (0, fs_1.writeFileSync)(file, JSON.stringify({ version, plainVersion, previousVersion, reference: gitReference }));
+                (0, fs_1.writeFileSync)(file, JSON.stringify({ version, plainVersion, extendedVersion, previousVersion, reference: gitReference }));
                 (0, core_1.debug)('Created artifact file.');
                 const client = (0, artifact_1.create)();
                 try {
