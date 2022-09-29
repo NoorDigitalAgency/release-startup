@@ -135,7 +135,7 @@ function run() {
             do {
                 const pagedReleases = ((yield octokit.rest.repos.listReleases({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, page, per_page: 100 })).data);
                 count = pagedReleases.length;
-                releases.push(...pagedReleases.filter(release => { var _a; return (_a = release.name) === null || _a === void 0 ? void 0 : _a.startsWith('v20'); }).map(release => {
+                releases.push(...pagedReleases.filter(release => release.tag_name.startsWith('v20')).map(release => {
                     var _a;
                     return ({
                         tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :

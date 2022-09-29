@@ -105,7 +105,7 @@ async function run(): Promise<void> {
 
       count = pagedReleases.length;
 
-      releases.push(...pagedReleases.filter(release => release.name?.startsWith('v20')).map(release => ({
+      releases.push(...pagedReleases.filter(release => release.tag_name.startsWith('v20')).map(release => ({
 
         tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :
 
