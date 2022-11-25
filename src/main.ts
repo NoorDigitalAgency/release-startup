@@ -5,7 +5,6 @@ import { create } from '@actions/artifact';
 import { wait, versioning } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
-import { getIssueMetadata } from 'issue-marker/src/functions';
 
 async function run(): Promise<void> {
 
