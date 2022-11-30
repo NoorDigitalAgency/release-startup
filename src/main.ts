@@ -230,17 +230,15 @@ async function run(): Promise<void> {
 
           if (issues.length > 0) {
 
-            const issuesList = issues.reduce((previous, current) => `${previous}\n- ${getIssueRepository(current)}#${current.number}`, '');
+            await summary
 
-            const description = `Release canceled because of issue that are not \`approved\``;
+                .addRaw(`Release canceled because of issues that are not \`approved\`:`, true)
 
-            const message = `${description}:${issuesList}`;
+                .addList(issues.map(issue => `[${getIssueRepository(issue)}#${issue.number}](https://github.com/${getIssueRepository(issue)}/issues/${issue.number})`))
 
-            summary.addRaw(message, true);
+                .write();
 
-            await summary.write();
-
-            throw new Error(description);
+            throw new Error('Release was canceled due to unapproved issues.');
           }
         }
 
