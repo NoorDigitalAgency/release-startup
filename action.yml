@@ -18,7 +18,7 @@ inputs:
     default: 'false'
   exports:
     required: false
-    description: Export outputs as environment veriables
+    description: Export outputs as environment variables
     default: 'true'
   artifact:
     required: false
@@ -28,6 +28,10 @@ inputs:
     required: false
     description: Artifact name
     default: release-startup-outputs
+  check_issues:
+    required: false
+    description: Check if issues are marked as approved
+    default: 'false'
 outputs:
   reference:
     description: Git reference

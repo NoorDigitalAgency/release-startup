@@ -1,10 +1,25 @@
-import { getInput, debug, info, getBooleanInput, startGroup, endGroup, setOutput, saveState, warning, exportVariable, setFailed, notice } from '@actions/core';
+import {
+  getInput,
+  debug,
+  info,
+  getBooleanInput,
+  startGroup,
+  endGroup,
+  setOutput,
+  saveState,
+  warning,
+  exportVariable,
+  setFailed,
+  notice,
+  summary
+} from '@actions/core';
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { create } from '@actions/artifact';
 import { wait, versioning } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
+import {getIssueRepository, getMarkedIssues} from "issue-marker/src/functions";
 
 async function run(): Promise<void> {
 
@@ -37,6 +52,10 @@ async function run(): Promise<void> {
     const artifactName = getInput('artifact_name');
 
     info(`Artifact Name is: ${artifactName}`);
+
+    const checkIssues = getBooleanInput('check_issues');
+
+    info(`Check Issues is: ${checkIssues}`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
@@ -205,6 +224,26 @@ async function run(): Promise<void> {
 
       if (!hotfix) {
 
+        if(checkIssues) {
+
+          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !issue.labels.some(label => label.name?.trim().toLowerCase() === 'approved'));
+
+          if (issues.length > 0) {
+
+            const issuesList = issues.reduce((previous, current) => `${previous}\n- ${getIssueRepository(current)}#${current.number}`, '');
+
+            const description = `Release canceled because of issue that are not \`approved\``;
+
+            const message = `${description}:${issuesList}`;
+
+            summary.addRaw(message, true);
+
+            await summary.write();
+
+            throw new Error(description);
+          }
+        }
+
         const ref = detached ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
 
         if (typeof ref !== 'string') {
@@ -347,7 +386,7 @@ async function run(): Promise<void> {
 
         debug('Attempting to delete the artifact file.');
 
-        rmRF(file);
+        await rmRF(file);
 
         debug('Artifact file deleted.');
 
@@ -362,7 +401,6 @@ async function run(): Promise<void> {
         endGroup();
       }
     }
-
   } catch (error) {
 
     startGroup('Error');
