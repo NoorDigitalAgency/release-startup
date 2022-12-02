@@ -201,7 +201,7 @@ function run() {
                                 .addRaw(`Release canceled because of issues that are not \`approved\`:`, true)
                                 .addRaw(issues.reduce((output, issue) => `${output}\n- [${(0, functions_2.getIssueRepository)(issue)}#${issue.number}](https://github.com/${(0, functions_2.getIssueRepository)(issue)}/issues/${issue.number})`, ''), true)
                                 .write();
-                            throw new Error('Release was canceled due to unapproved issues.');
+                            throw new Error('Release was canceled due to unapproved issues. Check the run summary for the list of blocking issues.');
                         }
                     }
                     const ref = detached ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
