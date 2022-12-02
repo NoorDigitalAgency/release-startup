@@ -199,7 +199,7 @@ function run() {
                         if (issues.length > 0) {
                             yield core_1.summary
                                 .addRaw(`Release canceled because of issues that are not \`approved\`:`, true)
-                                .addList(issues.map(issue => `[${(0, functions_2.getIssueRepository)(issue)}#${issue.number}](https://github.com/${(0, functions_2.getIssueRepository)(issue)}/issues/${issue.number})`))
+                                .addRaw(issues.reduce((output, issue) => `${output}\n- [${(0, functions_2.getIssueRepository)(issue)}#${issue.number}](https://github.com/${(0, functions_2.getIssueRepository)(issue)}/issues/${issue.number})`, ''), true)
                                 .write();
                             throw new Error('Release was canceled due to unapproved issues.');
                         }

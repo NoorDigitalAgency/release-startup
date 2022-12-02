@@ -234,7 +234,7 @@ async function run(): Promise<void> {
 
                 .addRaw(`Release canceled because of issues that are not \`approved\`:`, true)
 
-                .addList(issues.map(issue => `[${getIssueRepository(issue)}#${issue.number}](https://github.com/${getIssueRepository(issue)}/issues/${issue.number})`))
+                .addRaw(issues.reduce((output, issue) => `${output}\n- [${getIssueRepository(issue)}#${issue.number}](https://github.com/${getIssueRepository(issue)}/issues/${issue.number})`, ''), true)
 
                 .write();
 
