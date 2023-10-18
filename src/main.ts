@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { create } from '@actions/artifact';
-import { wait, versioning } from './functions';
+import {wait, versioning, compareVersions} from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import {getIssueRepository, getMarkedIssues} from "issue-marker/src/functions";
@@ -112,17 +112,11 @@ async function run(): Promise<void> {
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
-    const releases = (await octokit.paginate(octokit.rest.repos.listReleases, { owner: context.repo.owner, repo: context.repo.repo }))
+    const releases = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
 
-        .filter(release => release.tag_name.startsWith('v20'))
+        .filter(tag => tag.startsWith('v20'))
 
-        .map(release => ({
-
-          tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :
-
-              release.tag_name.includes('-beta.') ? 'release' :
-
-                  'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
+        .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
 
     }));
 
@@ -132,17 +126,17 @@ async function run(): Promise<void> {
 
     endGroup();
 
-    const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
+    const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => compareVersions(a.tag, b.tag)).map(release => release.tag).pop();
 
     info(`Previous version: '${previousVersion ?? ''}'`);
 
-    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => a.creation - b.creation)
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => compareVersions(a.tag, b.tag))
 
       .map(release => release.tag).pop();
 
     debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
-    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => a.creation - b.creation)
+    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => compareVersions(a.tag, b.tag))
 
       .map(release => release.tag).pop();
 
@@ -232,7 +226,7 @@ async function run(): Promise<void> {
           }
         }
 
-        const ref = detached ? reference : releases.filter(release => release.branch === source && release.published).sort((a, b) => a.creation - b.creation).map(release => release.tag).pop();
+        const ref = detached ? reference : releases.sort((a, b) => compareVersions(a.tag, b.tag)).map(release => release.tag).pop();
 
         if (typeof ref !== 'string') {
 
