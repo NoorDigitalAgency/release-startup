@@ -112,29 +112,19 @@ async function run(): Promise<void> {
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
-    const releases = [];
+    const releases = (await octokit.paginate(octokit.rest.repos.listReleases, { owner: context.repo.owner, repo: context.repo.repo }))
 
-    let page = 1;
+        .filter(release => release.tag_name.startsWith('v20'))
 
-    let count;
+        .map(release => ({
 
-    do {
+          tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :
 
-      const pagedReleases = ((await octokit.rest.repos.listReleases({ owner: context.repo.owner, repo: context.repo.repo, page, per_page: 100 })).data);
+              release.tag_name.includes('-beta.') ? 'release' :
 
-      count = pagedReleases.length;
+                  'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
 
-      releases.push(...pagedReleases.filter(release => release.tag_name.startsWith('v20')).map(release => ({
-
-        tag: release.tag_name, branch: release.tag_name.includes('-alpha.') ? 'develop' :
-
-        release.tag_name.includes('-beta.') ? 'release' : 'main', creation: Date.parse(release.published_at ?? release.created_at), published: !release.draft
-
-      })));
-
-      page++;
-
-    } while (count > 0);
+    }));
 
     startGroup('Releases');
 
