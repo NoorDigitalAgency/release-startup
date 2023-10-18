@@ -112,7 +112,7 @@ async function run(): Promise<void> {
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
-    const releases = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
+    const tags = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
 
         .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
 
@@ -122,19 +122,19 @@ async function run(): Promise<void> {
 
     startGroup('Releases');
 
-    debug(`Releases: ${stringify(releases)}`);
+    debug(`Releases: ${stringify(tags)}`);
 
     endGroup();
 
-    const previousVersion = releases.filter(release => release.branch === target).map(release => release.tag).pop();
+    const previousVersion = tags.filter(release => release.branch === target).map(release => release.tag).pop();
 
     info(`Previous version: '${previousVersion ?? ''}'`);
 
-    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').map(release => release.tag).pop();
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : tags.filter(release => release.branch === 'develop').map(release => release.tag).pop();
 
     debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
-    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').map(release => release.tag).pop();
+    const lastProductionVersion = stage === 'production' ? previousVersion : tags.filter(release => release.branch === 'main').map(release => release.tag).pop();
 
     debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
 
@@ -146,7 +146,7 @@ async function run(): Promise<void> {
 
     notice(`Release Version: ${version}`);
 
-    if (releases.some(release => release.tag === version)) {
+    if (tags.some(release => release.tag === version)) {
 
       throw new Error(`Release version '${version}' already exists.`);
 
@@ -222,7 +222,7 @@ async function run(): Promise<void> {
           }
         }
 
-        const ref = detached ? reference : releases.sort((a, b) => compareVersions(a.tag, b.tag)).map(release => release.tag).pop();
+        const ref = detached ? reference : tags.filter(release => release.branch === source).map(release => release.tag).pop();
 
         if (typeof ref !== 'string') {
 

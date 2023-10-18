@@ -171,24 +171,24 @@ function run() {
             if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo })).data.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
             }
-            const releases = (yield octokit.paginate(octokit.rest.repos.listTags, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo }, response => response.data.map(tag => tag.name)))
+            const tags = (yield octokit.paginate(octokit.rest.repos.listTags, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo }, response => response.data.map(tag => tag.name)))
                 .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
                 .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
             })).sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag)).reverse();
             (0, core_1.startGroup)('Releases');
-            (0, core_1.debug)(`Releases: ${(0, util_1.inspect)(releases)}`);
+            (0, core_1.debug)(`Releases: ${(0, util_1.inspect)(tags)}`);
             (0, core_1.endGroup)();
-            const previousVersion = releases.filter(release => release.branch === target).map(release => release.tag).pop();
+            const previousVersion = tags.filter(release => release.branch === target).map(release => release.tag).pop();
             (0, core_1.info)(`Previous version: '${previousVersion !== null && previousVersion !== void 0 ? previousVersion : ''}'`);
-            const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').map(release => release.tag).pop();
+            const lastAlphaVersion = stage === 'alpha' ? previousVersion : tags.filter(release => release.branch === 'develop').map(release => release.tag).pop();
             (0, core_1.debug)(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
-            const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').map(release => release.tag).pop();
+            const lastProductionVersion = stage === 'production' ? previousVersion : tags.filter(release => release.branch === 'main').map(release => release.tag).pop();
             (0, core_1.debug)(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
             const plainVersion = version.substring(1);
             const extendedVersion = hotfix ? version : version.replace(/^(v20\d+\.\d+)(-(?:alpha|beta)\.\d+|)$/img, "$1.0$2");
             (0, core_1.notice)(`Release Version: ${version}`);
-            if (releases.some(release => release.tag === version)) {
+            if (tags.some(release => release.tag === version)) {
                 throw new Error(`Release version '${version}' already exists.`);
             }
             (0, core_1.info)(`Version: '${version}'`);
@@ -230,7 +230,7 @@ function run() {
                             throw new Error('Release was canceled due to unapproved issues. Check the run summary for the list of blocking issues.');
                         }
                     }
-                    const ref = detached ? reference : releases.sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag)).map(release => release.tag).pop();
+                    const ref = detached ? reference : tags.filter(release => release.branch === source).map(release => release.tag).pop();
                     if (typeof ref !== 'string') {
                         throw new Error(`No suitable version found on '${source}' and no 'reference' was provided either.`);
                     }
