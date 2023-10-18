@@ -172,7 +172,7 @@ function run() {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
             }
             const releases = (yield octokit.paginate(octokit.rest.repos.listTags, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo }, response => response.data.map(tag => tag.name)))
-                .filter(tag => tag.startsWith('v20'))
+                .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
                 .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
             })).sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag)).reverse();
             (0, core_1.startGroup)('Releases');

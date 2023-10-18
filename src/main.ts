@@ -114,7 +114,7 @@ async function run(): Promise<void> {
 
     const releases = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
 
-        .filter(tag => tag.startsWith('v20'))
+        .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
 
         .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
 
