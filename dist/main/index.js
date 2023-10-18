@@ -174,17 +174,15 @@ function run() {
             const releases = (yield octokit.paginate(octokit.rest.repos.listTags, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo }, response => response.data.map(tag => tag.name)))
                 .filter(tag => tag.startsWith('v20'))
                 .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
-            }));
+            })).sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag)).reverse();
             (0, core_1.startGroup)('Releases');
             (0, core_1.debug)(`Releases: ${(0, util_1.inspect)(releases)}`);
             (0, core_1.endGroup)();
-            const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag)).map(release => release.tag).pop();
+            const previousVersion = releases.filter(release => release.branch === target).map(release => release.tag).pop();
             (0, core_1.info)(`Previous version: '${previousVersion !== null && previousVersion !== void 0 ? previousVersion : ''}'`);
-            const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag))
-                .map(release => release.tag).pop();
+            const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').map(release => release.tag).pop();
             (0, core_1.debug)(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
-            const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag))
-                .map(release => release.tag).pop();
+            const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').map(release => release.tag).pop();
             (0, core_1.debug)(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
             const version = (0, functions_1.versioning)(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
             const plainVersion = version.substring(1);

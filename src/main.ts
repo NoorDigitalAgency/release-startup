@@ -118,7 +118,7 @@ async function run(): Promise<void> {
 
         .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
 
-    }));
+    })).sort((a, b) => compareVersions(a.tag, b.tag)).reverse();
 
     startGroup('Releases');
 
@@ -126,19 +126,15 @@ async function run(): Promise<void> {
 
     endGroup();
 
-    const previousVersion = releases.filter(release => release.branch === target).sort((a, b) => compareVersions(a.tag, b.tag)).map(release => release.tag).pop();
+    const previousVersion = releases.filter(release => release.branch === target).map(release => release.tag).pop();
 
     info(`Previous version: '${previousVersion ?? ''}'`);
 
-    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').sort((a, b) => compareVersions(a.tag, b.tag))
-
-      .map(release => release.tag).pop();
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : releases.filter(release => release.branch === 'develop').map(release => release.tag).pop();
 
     debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
-    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').sort((a, b) => compareVersions(a.tag, b.tag))
-
-      .map(release => release.tag).pop();
+    const lastProductionVersion = stage === 'production' ? previousVersion : releases.filter(release => release.branch === 'main').map(release => release.tag).pop();
 
     debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
 
