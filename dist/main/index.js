@@ -55,43 +55,22 @@ function versioning(stage, reference, hotfix, previousVersion, lastProductionVer
     return version;
 }
 exports.versioning = versioning;
-function parseVersion(version) {
+function simplifyVersion(version) {
     const matches = version.match(/^v(\d+)\.(\d+)(?:\.(\d+))?(?:-([\w.]+))?$/);
     if (!matches) {
         throw new Error(`Invalid version format: ${version}`);
     }
-    const [, major, minor, patch, preRelease] = matches;
-    return {
-        major: parseInt(major, 10),
-        minor: parseInt(minor, 10),
-        patch: patch ? parseInt(patch, 10) : 0,
-        preRelease: preRelease ? preRelease.split('.').map(part => isNaN(Number(part)) ? part : Number(part)) : []
+    const [, major, minor, patch, pre] = matches;
+    const info = {
+        major: parseInt(major),
+        minor: 100 + parseInt(minor),
+        patch: 100 + (patch ? parseInt(patch) : 0),
+        preRelease: pre ? pre.split('.').map(part => isNaN(Number(part)) ? part === 'alpha' ? 1000 : part === 'beta' ? 4000 : 0 : Number(part)).reduce((p, c) => p + c) : 8000
     };
+    return +`${info.major}${info.minor}${info.patch}${info.preRelease}`;
 }
 function compareVersions(a, b) {
-    const versionA = parseVersion(a);
-    const versionB = parseVersion(b);
-    if (versionA.major !== versionB.major) {
-        return versionB.major - versionA.major;
-    }
-    if (versionA.minor !== versionB.minor) {
-        return versionB.minor - versionA.minor;
-    }
-    if (versionA.patch !== versionB.patch) {
-        return versionB.patch - versionA.patch;
-    }
-    // Compare pre-release identifiers
-    const preReleaseA = versionA.preRelease;
-    const preReleaseB = versionB.preRelease;
-    for (let i = 0; i < Math.min(preReleaseA.length, preReleaseB.length); i++) {
-        if (preReleaseA[i] < preReleaseB[i]) {
-            return 1;
-        }
-        else if (preReleaseA[i] > preReleaseB[i]) {
-            return -1;
-        }
-    }
-    return preReleaseA.length - preReleaseB.length;
+    return simplifyVersion(b) - simplifyVersion(a);
 }
 exports.compareVersions = compareVersions;
 
@@ -174,7 +153,7 @@ function run() {
             const tags = (yield octokit.paginate(octokit.rest.repos.listTags, { owner: github_1.context.repo.owner, repo: github_1.context.repo.repo }, response => response.data.map(tag => tag.name)))
                 .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
                 .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
-            })).sort((a, b) => (0, functions_1.compareVersions)(a.tag, b.tag)).reverse();
+            })).sort((a, b) => (0, functions_1.compareVersions)(b.tag, a.tag));
             (0, core_1.startGroup)('Releases');
             (0, core_1.debug)(`Releases: ${(0, util_1.inspect)(tags)}`);
             (0, core_1.endGroup)();

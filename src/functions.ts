@@ -76,56 +76,25 @@ export function versioning(stage: string, reference: string, hotfix: boolean, pr
   return version;
 }
 
-interface VersionInfo {
-  major: number;
-  minor: number;
-  patch: number;
-  preRelease: (string | number)[];
-}
-
-function parseVersion(version: string): VersionInfo {
+function simplifyVersion(version: string): number {
   const matches = version.match(/^v(\d+)\.(\d+)(?:\.(\d+))?(?:-([\w.]+))?$/);
   if (!matches) {
     throw new Error(`Invalid version format: ${version}`);
   }
 
-  const [, major, minor, patch, preRelease] = matches;
+  const [, major, minor, patch, pre] = matches;
 
-  return {
-    major: parseInt(major, 10),
-    minor: parseInt(minor, 10),
-    patch: patch ? parseInt(patch, 10) : 0,
-    preRelease: preRelease ? preRelease.split('.').map(part => isNaN(Number(part)) ? part : Number(part)) : []
+  const info = {
+    major: parseInt(major),
+    minor: 100 + parseInt(minor),
+    patch: 100 + (patch ? parseInt(patch) : 0),
+    preRelease: pre ? pre.split('.').map(part => isNaN(Number(part)) ? part === 'alpha' ? 1000 : part === 'beta' ? 4000 : 0 : Number(part)).reduce((p, c) => p + c) : 8000
   };
+
+  return +`${info.major}${info.minor}${info.patch}${info.preRelease}`;
 }
 
 export function compareVersions(a: string, b: string): number {
-  const versionA = parseVersion(a);
-  const versionB = parseVersion(b);
 
-  if (versionA.major !== versionB.major) {
-    return versionB.major - versionA.major;
-  }
-
-  if (versionA.minor !== versionB.minor) {
-    return versionB.minor - versionA.minor;
-  }
-
-  if (versionA.patch !== versionB.patch) {
-    return versionB.patch - versionA.patch;
-  }
-
-  // Compare pre-release identifiers
-  const preReleaseA = versionA.preRelease;
-  const preReleaseB = versionB.preRelease;
-
-  for (let i = 0; i < Math.min(preReleaseA.length, preReleaseB.length); i++) {
-    if (preReleaseA[i] < preReleaseB[i]) {
-      return 1;
-    } else if (preReleaseA[i] > preReleaseB[i]) {
-      return -1;
-    }
-  }
-
-  return preReleaseA.length - preReleaseB.length;
+  return simplifyVersion(b) - simplifyVersion(a);
 }

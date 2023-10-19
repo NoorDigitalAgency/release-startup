@@ -118,7 +118,7 @@ async function run(): Promise<void> {
 
         .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
 
-    })).sort((a, b) => compareVersions(a.tag, b.tag)).reverse();
+    })).sort((a, b) => compareVersions(b.tag, a.tag));
 
     startGroup('Releases');
 
