@@ -65,7 +65,7 @@ function parseVersion(version) {
         major: parseInt(major, 10),
         minor: parseInt(minor, 10),
         patch: patch ? parseInt(patch, 10) : 0,
-        preRelease: preRelease ? preRelease.split('.') : []
+        preRelease: preRelease ? preRelease.split('.').map(part => isNaN(Number(part)) ? part : Number(part)) : []
     };
 }
 function compareVersions(a, b) {

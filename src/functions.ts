@@ -80,7 +80,7 @@ interface VersionInfo {
   major: number;
   minor: number;
   patch: number;
-  preRelease: string[];
+  preRelease: (string | number)[];
 }
 
 function parseVersion(version: string): VersionInfo {
@@ -95,7 +95,7 @@ function parseVersion(version: string): VersionInfo {
     major: parseInt(major, 10),
     minor: parseInt(minor, 10),
     patch: patch ? parseInt(patch, 10) : 0,
-    preRelease: preRelease ? preRelease.split('.') : []
+    preRelease: preRelease ? preRelease.split('.').map(part => isNaN(Number(part)) ? part : Number(part)) : []
   };
 }
 
