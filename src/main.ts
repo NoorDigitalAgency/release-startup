@@ -218,7 +218,7 @@ async function run(): Promise<void> {
 
                 .write();
 
-            throw new Error('Release was canceled due to unapproved issues. Check the run summary for the list of blocking issues.');
+            throw new Error('Release was canceled due to unapproved issues. Check the run summary and scroll to the bottom of the page for the list of blocking issues.');
           }
         }
 
