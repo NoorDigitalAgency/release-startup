@@ -99,7 +99,7 @@ const artifact_1 = __nccwpck_require__(7706);
 const functions_1 = __nccwpck_require__(1786);
 const util_1 = __nccwpck_require__(3837);
 const fs_1 = __nccwpck_require__(7147);
-const functions_2 = __nccwpck_require__(6271);
+const functions_2 = __nccwpck_require__(6829);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -44030,7 +44030,7 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 6271:
+/***/ 6829:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -44087,15 +44087,15 @@ function getMarkedIssues(stage, octokit) {
         const query = `"application: 'issue-marker'" AND "repository: '${github_1.context.repo.owner}/${github_1.context.repo.repo}'" type:issue state:open in:body label:${filterLabel}`;
         (0, core_1.info)(`Query: ${query}`);
         const items = (yield octokit.rest.search.issuesAndPullRequests({ q: query })).data.items;
-        (0, core_1.info)(`Items: ${(0, util_1.inspect)(items)}`);
+        (0, core_1.info)(`Items: ${(0, util_1.inspect)(items, { depth: 10 })}`);
         const filteredItems = items.filter(item => {
             var _a, _b;
             return ((_a = item.body) === null || _a === void 0 ? void 0 : _a.includes('application: \'issue-marker\'')) &&
                 ((_b = item.body) === null || _b === void 0 ? void 0 : _b.includes(`repository: '${github_1.context.repo.owner}/${github_1.context.repo.repo}'`)) &&
                 item.labels.map(label => label.name).includes(filterLabel) && item.state === 'open';
         });
-        (0, core_1.info)(`Filtered Items: ${(0, util_1.inspect)(filteredItems)}`);
-        return filteredItems;
+        (0, core_1.info)(`Filtered Items: ${(0, util_1.inspect)(filteredItems, { depth: 10 })}`);
+        return items;
     });
 }
 exports.getMarkedIssues = getMarkedIssues;
