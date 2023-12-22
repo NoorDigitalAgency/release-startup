@@ -17,9 +17,12 @@ dependencies:
   '@actions/io':
     specifier: ^1.1.3
     version: 1.1.3
+  '@octokit/graphql-schema':
+    specifier: ^14.46.0
+    version: 14.46.0
   issue-marker:
     specifier: github:NoorDigitalAgency/issue-marker#main
-    version: github.com/NoorDigitalAgency/issue-marker/a54ca31bab9b0b640ee35f872592a2042b4e7086
+    version: github.com/NoorDigitalAgency/issue-marker/14aabc70de9f0b7c3a166ec77c25f603b5a9c31f
 
 devDependencies:
   '@types/js-yaml':
@@ -451,8 +454,8 @@ packages:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: false
 
-  github.com/NoorDigitalAgency/issue-marker/a54ca31bab9b0b640ee35f872592a2042b4e7086:
-    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/a54ca31bab9b0b640ee35f872592a2042b4e7086}
+  github.com/NoorDigitalAgency/issue-marker/14aabc70de9f0b7c3a166ec77c25f603b5a9c31f:
+    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/14aabc70de9f0b7c3a166ec77c25f603b5a9c31f}
     name: issue-marker
     version: 1.0.0
     dependencies:

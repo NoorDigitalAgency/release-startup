@@ -19,7 +19,7 @@ import { create } from '@actions/artifact';
 import {wait, versioning, compareVersions} from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
-import {getIssueRepository, getMarkedIssues} from "issue-marker/src/functions";
+import {getMarkedIssues,getIssueRepository} from "issue-marker/src/functions";
 
 async function run(): Promise<void> {
 
@@ -206,7 +206,7 @@ async function run(): Promise<void> {
 
         if(checkIssues) {
 
-          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !issue.labels.some(label => label.name?.trim().toLowerCase() === 'approved'));
+          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !(issue.labels?.nodes ?? []).some(label => label!.name.trim().toLowerCase() === 'approved'));
 
           if (issues.length > 0) {
 
