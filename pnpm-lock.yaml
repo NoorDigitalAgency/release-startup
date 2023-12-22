@@ -19,7 +19,7 @@ dependencies:
     version: 1.1.3
   issue-marker:
     specifier: github:NoorDigitalAgency/issue-marker#main
-    version: github.com/NoorDigitalAgency/issue-marker/faa37ad050514114aea240f46b83d9da120aa9ad
+    version: github.com/NoorDigitalAgency/issue-marker/a54ca31bab9b0b640ee35f872592a2042b4e7086
 
 devDependencies:
   '@types/js-yaml':
@@ -123,6 +123,13 @@ packages:
       '@octokit/types': 6.41.0
       is-plain-object: 5.0.0
       universal-user-agent: 6.0.1
+    dev: false
+
+  /@octokit/graphql-schema@14.46.0:
+    resolution: {integrity: sha512-TeQvpu984EWMqqDueIZ9XxjTSigJLx/4oxoAaU9ZEF+LhnPml++bdVvKyY4n4rSYnm+vh/nxVJVhYJrjukhxDQ==}
+    dependencies:
+      graphql: 16.8.1
+      graphql-tag: 2.12.6(graphql@16.8.1)
     dev: false
 
   /@octokit/graphql@4.8.0:
@@ -287,6 +294,21 @@ packages:
       path-is-absolute: 1.0.1
     dev: false
 
+  /graphql-tag@2.12.6(graphql@16.8.1):
+    resolution: {integrity: sha512-FdSNcu2QQcWnM2VNvSCCDCVS5PpPqpzgFT8+GXzqJuoDd0CBncxCY278u4mhRO7tMgo2JjgJA5aZ+nWSQ/Z+xg==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      graphql: ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
+    dependencies:
+      graphql: 16.8.1
+      tslib: 2.6.2
+    dev: false
+
+  /graphql@16.8.1:
+    resolution: {integrity: sha512-59LZHPdGZVh695Ud9lRzPBVTtlX9ZCV150Er2W43ro37wVof0ctenSaskPPjN7lVTIN8mSZt8PHUNKZuNQUuxw==}
+    engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
+    dev: false
+
   /inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
     dependencies:
@@ -379,6 +401,10 @@ packages:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
     dev: false
 
+  /tslib@2.6.2:
+    resolution: {integrity: sha512-AEYxH93jGFPn/a2iVAwW87VuUIkR1FVUKB77NwMF7nBTDkDrrT/Hpt/IrCJ0QXhW27jTBDcf5ZY7w6RiqTMw2Q==}
+    dev: false
+
   /tunnel@0.0.6:
     resolution: {integrity: sha512-1h/Lnq9yajKY2PEbBadPXj3VxsDDu844OnaAo52UVmIzIvwwtBPIuNvkjuzBlTWpfJyUbG3ez0KSBibQkj4ojg==}
     engines: {node: '>=0.6.11 <=0.7.0 || >=0.7.3'}
@@ -425,8 +451,8 @@ packages:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: false
 
-  github.com/NoorDigitalAgency/issue-marker/faa37ad050514114aea240f46b83d9da120aa9ad:
-    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/faa37ad050514114aea240f46b83d9da120aa9ad}
+  github.com/NoorDigitalAgency/issue-marker/a54ca31bab9b0b640ee35f872592a2042b4e7086:
+    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/a54ca31bab9b0b640ee35f872592a2042b4e7086}
     name: issue-marker
     version: 1.0.0
     dependencies:
@@ -434,6 +460,7 @@ packages:
       '@actions/exec': 1.1.1
       '@actions/github': 5.1.1
       '@noordigitalagency/zenhub-client': 2023.18.0
+      '@octokit/graphql-schema': 14.46.0
       axios: 1.6.2
       js-yaml: 4.1.0
     transitivePeerDependencies:
