@@ -99,7 +99,7 @@ const artifact_1 = __nccwpck_require__(7706);
 const functions_1 = __nccwpck_require__(1786);
 const util_1 = __nccwpck_require__(3837);
 const fs_1 = __nccwpck_require__(7147);
-const functions_2 = __nccwpck_require__(6829);
+const functions_2 = __nccwpck_require__(1554);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -200,7 +200,7 @@ function run() {
                 let head = hotfix ? reference : null;
                 if (!hotfix) {
                     if (checkIssues) {
-                        const issues = (yield (0, functions_2.getMarkedIssues)(stage, octokit)).filter(issue => !issue.labels.some(label => { var _a; return ((_a = label.name) === null || _a === void 0 ? void 0 : _a.trim().toLowerCase()) === 'approved'; }));
+                        const issues = (yield (0, functions_2.getMarkedIssues)(stage, octokit)).filter(issue => { var _a, _b; return !((_b = (_a = issue.labels) === null || _a === void 0 ? void 0 : _a.nodes) !== null && _b !== void 0 ? _b : []).some(label => label.name.trim().toLowerCase() === 'approved'); });
                         if (issues.length > 0) {
                             yield core_1.summary
                                 .addRaw(`Release canceled because of issues that are not \`approved\`:`, true)
@@ -44030,7 +44030,7 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 6829:
+/***/ 1554:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -44045,7 +44045,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.refineLabels = exports.deconstructIssueId = exports.getTargetIssues = exports.getMarkedIssues = exports.getIssueRepository = exports.getIssueMetadata = void 0;
+exports.refineLabels = exports.deconstructIssueId = exports.getTargetIssues = exports.getIssueRepository = exports.getMarkedIssues = exports.getIssueMetadata = void 0;
 const js_yaml_1 = __nccwpck_require__(7021);
 const exec_1 = __nccwpck_require__(5082);
 const core_1 = __nccwpck_require__(9483);
@@ -44076,31 +44076,101 @@ exports.getIssueMetadata = getIssueMetadata;
 function summarizeMetadata(metadata) {
     return `${openerComment}\n<details data-id="issue-marker">\n<summary>Issue Marker's Metadata</summary>\n\n\`\`\`yaml\n${metadata}\`\`\`\n</details>\n${closerComment}`;
 }
-function getIssueRepository(issue) {
-    const { repository } = issue.url.match(issueRegex).groups;
-    return repository;
+function getAllIssuesInOrganization(octokit, labels) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let hasNextPage = true;
+        let endCursor = null;
+        const targetRepositories = new Array();
+        while (hasNextPage) {
+            const query = `
+                query($organizationName: String!, $endCursor: String, $labels: [String!]) {
+                    organization(login: $organizationName) {
+                        repositories(first: 100, after: $endCursor) {
+                            nodes {
+                                issues(labels: $labels, states: OPEN) {
+                                    totalCount
+                                }
+                                name
+                                owner {
+                                  login
+                                }
+                            }
+                            pageInfo {
+                                endCursor
+                                hasNextPage
+                            }
+                        }
+                    }
+                }
+            `;
+            const repositories = (yield octokit.graphql(query, { organizationName: github_1.context.repo.owner, endCursor, labels })).organization.repositories;
+            if (repositories.nodes && repositories.nodes.length > 0) {
+                targetRepositories.push(...repositories.nodes.filter(node => { var _a; return (_a = node === null || node === void 0 ? void 0 : node.issues.totalCount) !== null && _a !== void 0 ? _a : 0 > 0; }).map(node => ({ owner: node.owner.login, name: node.name })));
+            }
+            hasNextPage = repositories === null || repositories === void 0 ? void 0 : repositories.pageInfo.hasNextPage;
+            endCursor = repositories === null || repositories === void 0 ? void 0 : repositories.pageInfo.endCursor;
+        }
+        const targetIssues = new Array();
+        for (const targetRepository of targetRepositories) {
+            hasNextPage = true;
+            endCursor = null;
+            while (hasNextPage) {
+                const query = `
+                query($owner: String!, $name: String!, $endCursor: String, $labels: [String!]) {
+                    repository(owner: $owner, name: $name) {
+                        issues(first: 100, after: $endCursor, labels: $labels, states: OPEN) {
+                            nodes {
+                                number
+                                body
+                                repository {
+                                    name
+                                    owner {
+                                        login
+                                    }
+                                }
+                            }
+                            pageInfo {
+                                endCursor
+                                hasNextPage
+                            }
+                        }
+                    }
+                }
+            `;
+                const issues = (yield octokit.graphql(query, { owner: targetRepository.owner, name: targetRepository.name, endCursor, labels })).repository.issues;
+                if ((issues === null || issues === void 0 ? void 0 : issues.nodes) && issues.nodes.length > 0) {
+                    targetIssues.push(...issues.nodes.map(issue => issue));
+                }
+                hasNextPage = issues === null || issues === void 0 ? void 0 : issues.pageInfo.hasNextPage;
+                endCursor = issues === null || issues === void 0 ? void 0 : issues.pageInfo.endCursor;
+            }
+        }
+        (0, core_1.startGroup)('All Issues');
+        (0, core_1.info)((0, util_1.inspect)(targetIssues, { depth: 10 }));
+        (0, core_1.endGroup)();
+        return targetIssues;
+    });
 }
-exports.getIssueRepository = getIssueRepository;
 function getMarkedIssues(stage, octokit) {
     return __awaiter(this, void 0, void 0, function* () {
         const filterLabel = stage === 'production' ? 'beta' : 'alpha';
-        const query = `"application: 'issue-marker'" AND "repository: '${github_1.context.repo.owner}/${github_1.context.repo.repo}'" type:issue state:open in:body label:${filterLabel}`;
-        (0, core_1.info)(`Query: ${query}`);
-        const items = (yield octokit.rest.search.issuesAndPullRequests({ q: query })).data.items;
-        (0, core_1.info)(`Items: ${(0, util_1.inspect)(items, { depth: 10 })}`);
-        const filteredItems = items.filter(item => {
-            var _a, _b;
-            return ((_a = item.body) === null || _a === void 0 ? void 0 : _a.includes('application: \'issue-marker\'')) &&
-                ((_b = item.body) === null || _b === void 0 ? void 0 : _b.includes(`repository: '${github_1.context.repo.owner}/${github_1.context.repo.repo}'`)) &&
-                item.labels.map(label => label.name).includes(filterLabel) && item.state === 'open';
-        });
-        (0, core_1.info)(`Filtered Items: ${(0, util_1.inspect)(filteredItems, { depth: 10 })}`);
-        return items;
+        const contains = (0, js_yaml_1.dump)({ application: 'issue-marker', repository: `${github_1.context.repo.owner}/${github_1.context.repo.repo}` }).trim().split('\n').map(line => line.trim());
+        (0, core_1.info)(`Contains: "${(0, util_1.inspect)(contains, { depth: 10 })}".`);
+        const issues = (yield getAllIssuesInOrganization(octokit, [filterLabel])).filter(issue => contains.every(phrase => issue.body.includes(phrase)));
+        (0, core_1.startGroup)('Marked Issues');
+        (0, core_1.info)((0, util_1.inspect)(issues, { depth: 10 }));
+        (0, core_1.endGroup)();
+        return issues;
     });
 }
 exports.getMarkedIssues = getMarkedIssues;
+function getIssueRepository(issue) {
+    var _a, _b, _c;
+    return issue.repository && issue.repository.owner ? `${(_b = (_a = issue.repository) === null || _a === void 0 ? void 0 : _a.owner) === null || _b === void 0 ? void 0 : _b.login}/${(_c = issue.repository) === null || _c === void 0 ? void 0 : _c.name}` : '';
+}
+exports.getIssueRepository = getIssueRepository;
 function getTargetIssues(stage, version, previousVersion, reference, octokit) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     return __awaiter(this, void 0, void 0, function* () {
         const logRegex = /^(?<hash>[0-9a-f]{40}) Merge pull request #(?<number>\d+) from .+?$/mg;
         const branchRegex = /^.+?\/(?<branch>[^\/\s]+)\s*$/mg;
@@ -44143,7 +44213,7 @@ function getTargetIssues(stage, version, previousVersion, reference, octokit) {
                 for (const link of links) {
                     const issue = (yield octokit.rest.issues.get({ owner: (_c = link.owner) !== null && _c !== void 0 ? _c : owner, repo: (_d = link.repo) !== null && _d !== void 0 ? _d : repo, issue_number: +link.issue })).data;
                     if (issue.state !== 'closed' && !issue.pull_request && issue.labels.every(label => ['beta', 'production'].every(stageLabel => { var _a; return (_a = (typeof (label) === 'string' ? label : label.name)) !== null && _a !== void 0 ? _a : '' !== stageLabel; }))) {
-                        const repository = getIssueRepository(issue);
+                        const { repository } = issue.url.match(issueRegex).groups;
                         issues.push(Object.assign(Object.assign({ id: `${repository}#${link.issue}` }, getIssueMetadata({ stage, body: (_e = issue.body) !== null && _e !== void 0 ? _e : '', commit: merge.hash, repository: `${owner}/${repo}`, version })), { labels: issue.labels.filter(label => typeof (label) === 'string' ? label : label.name)
                                 .map(label => typeof (label) === 'string' ? label : label.name).filter(label => typeof (label) === 'string') }));
                     }
@@ -44153,15 +44223,12 @@ function getTargetIssues(stage, version, previousVersion, reference, octokit) {
         else if (stage === 'production' || stage === 'beta') {
             const currentBranch = stage === 'production' ? 'main' : 'release';
             const items = yield getMarkedIssues(stage, octokit);
-            (0, core_1.startGroup)('Query Items');
-            (0, core_1.info)((0, util_1.inspect)(items));
-            (0, core_1.endGroup)();
             for (const issue of items) {
-                (0, core_1.info)(`Issue ${issue.repository}#${issue.number}`);
                 const repository = getIssueRepository(issue);
+                (0, core_1.info)(`Issue ${repository}#${issue.number}`);
                 const { body, commit } = getIssueMetadata({ stage, body: (_f = issue.body) !== null && _f !== void 0 ? _f : '', version, commit: reference });
                 (0, core_1.startGroup)('Issue Body');
-                (0, core_1.info)((_g = issue.body) !== null && _g !== void 0 ? _g : '');
+                (0, core_1.info)(body);
                 (0, core_1.endGroup)();
                 (0, core_1.startGroup)('Modified Body');
                 (0, core_1.info)(body);
@@ -44170,7 +44237,7 @@ function getTargetIssues(stage, version, previousVersion, reference, octokit) {
                 let branches = '';
                 try {
                     yield (0, exec_1.getExecOutput)('git', ['branch', '-r', '--contains', commit], { listeners: { stderr: (data) => error += data.toString(), stdout: (data) => branches += data.toString() } });
-                    const labels = issue.labels.map(label => { var _a; return (_a = label.name) !== null && _a !== void 0 ? _a : ''; }).filter(label => label !== '');
+                    const labels = (_j = (_h = (_g = issue.labels) === null || _g === void 0 ? void 0 : _g.nodes) === null || _h === void 0 ? void 0 : _h.map(label => { var _a; return (_a = label === null || label === void 0 ? void 0 : label.name) !== null && _a !== void 0 ? _a : ''; }).filter(label => label !== '')) !== null && _j !== void 0 ? _j : [];
                     if ([...branches.matchAll(branchRegex)].map(branch => branch.groups.branch).includes(currentBranch))
                         issues.push({
                             id: `${repository}#${issue.number}`,
@@ -44178,8 +44245,8 @@ function getTargetIssues(stage, version, previousVersion, reference, octokit) {
                             labels
                         });
                 }
-                catch (_h) {
-                    (0, core_1.warning)(`Commit: ${commit}, Repository: ${issue.repository}#${issue.number}, Error: ${error}.`);
+                catch (_k) {
+                    (0, core_1.warning)(`Commit: ${commit}, Repository: ${repository}#${issue.number}, Error: ${error}.`);
                 }
             }
         }
