@@ -22,7 +22,7 @@ dependencies:
     version: 14.46.0
   issue-marker:
     specifier: github:NoorDigitalAgency/issue-marker#main
-    version: github.com/NoorDigitalAgency/issue-marker/cc896e48ec163d2294c4c03524020dae34709cdf
+    version: github.com/NoorDigitalAgency/issue-marker/c64f23b470541db03c59984f900824ffd6da13c0
 
 devDependencies:
   '@types/js-yaml':
@@ -454,8 +454,8 @@ packages:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: false
 
-  github.com/NoorDigitalAgency/issue-marker/cc896e48ec163d2294c4c03524020dae34709cdf:
-    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/cc896e48ec163d2294c4c03524020dae34709cdf}
+  github.com/NoorDigitalAgency/issue-marker/c64f23b470541db03c59984f900824ffd6da13c0:
+    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/c64f23b470541db03c59984f900824ffd6da13c0}
     name: issue-marker
     version: 1.0.0
     dependencies:
