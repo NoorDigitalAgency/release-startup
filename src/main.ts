@@ -299,7 +299,7 @@ async function run(): Promise<void> {
 
               await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
 
-              await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+              await exec('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
 
               await exec('git', ['add', '.']);
 
