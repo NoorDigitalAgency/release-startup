@@ -16,14 +16,24 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { create } from '@actions/artifact';
-import {wait, versioning, compareVersions} from './functions';
+import { wait, versioning, compareVersions } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
-import {getMarkedIssues,getIssueRepository} from "issue-marker/src/functions";
+import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
+import { exec, getExecOutput } from "@actions/exec";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 async function run(): Promise<void> {
 
   try {
+
+    const starterBranch = context.ref.split('/').pop();
+
+    if (starterBranch !== 'main' && starterBranch != 'release' && starterBranch !== 'develop') {
+
+      throw new Error(`The release can only be started from the 'main', 'release' or 'develop' branch but started from '${starterBranch}'.`);
+    }
 
     const token = getInput('token', { required: true });
 
@@ -240,6 +250,54 @@ async function run(): Promise<void> {
         const branchName = `rebase-${sha}-rsa`;
 
         await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
+
+        const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
+
+        const scriptFile = join(process.env.GITHUB_WORKSPACE!, stageScriptFile);
+
+        if ((stage === 'beta' || stage === 'production') && existsSync(scriptFile) && readFileSync(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx')) {
+
+          debug(`ZX Script file found: '${scriptFile}'`);
+
+          await exec('npm', ['install', '--global', 'zx']);
+
+          const url = new URL(context.payload.repository!.html_url!);
+
+          const actor = context.actor;
+
+          const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+
+          debug(`Cloning: '${githubUrl}'`);
+
+          await exec('git', ['clone', '--branch', 'develop', githubUrl, '.']);
+
+          debug(`Running script: '${scriptFile}'`);
+
+          await exec('zx', ['--install', scriptFile]);
+
+          const { stdout} = await getExecOutput('git', ['status', '--porcelain']);
+
+          if (stdout.trim() !== '') {
+
+            debug(`ZX script made changes to the repository. Committing the changes.`);
+
+            await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+
+            await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+
+            await exec('git', ['add', '.']);
+
+            await exec('git', ['commit', `-m"Changes applied by running ${context.repo.repo}/${stageScriptFile} (zx script)"`]);
+
+            await exec('git', ['push']);
+
+            debug(`Changes committed and pushed.`);
+
+          } else {
+
+            debug(`ZX script didn't make any changes to the repository.`);
+          }
+        }
 
         debug(`Temporary Branch Name: '${branchName}'`);
 

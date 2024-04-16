@@ -100,9 +100,16 @@ const functions_1 = __nccwpck_require__(1786);
 const util_1 = __nccwpck_require__(3837);
 const fs_1 = __nccwpck_require__(7147);
 const functions_2 = __nccwpck_require__(7877);
+const exec_1 = __nccwpck_require__(5082);
+const node_fs_1 = __nccwpck_require__(7561);
+const node_path_1 = __nccwpck_require__(9411);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            const starterBranch = github_1.context.ref.split('/').pop();
+            if (starterBranch !== 'main' && starterBranch != 'release' && starterBranch !== 'develop') {
+                throw new Error(`The release can only be started from the 'main', 'release' or 'develop' branch but started from '${starterBranch}'.`);
+            }
             const token = (0, core_1.getInput)('token', { required: true });
             (0, core_1.debug)(`Token: '${token}'`);
             const stage = (0, core_1.getInput)('stage', { required: true });
@@ -219,6 +226,32 @@ function run() {
                     (0, core_1.debug)(`SHA: '${sha}'`);
                     const branchName = `rebase-${sha}-rsa`;
                     yield octokit.rest.git.createRef({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, sha, ref: `refs/heads/${branchName}` });
+                    const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
+                    const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
+                    if ((stage === 'beta' || stage === 'production') && (0, node_fs_1.existsSync)(scriptFile) && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx')) {
+                        (0, core_1.debug)(`ZX Script file found: '${scriptFile}'`);
+                        yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
+                        const url = new URL(github_1.context.payload.repository.html_url);
+                        const actor = github_1.context.actor;
+                        const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+                        (0, core_1.debug)(`Cloning: '${githubUrl}'`);
+                        yield (0, exec_1.exec)('git', ['clone', '--branch', 'develop', githubUrl, '.']);
+                        (0, core_1.debug)(`Running script: '${scriptFile}'`);
+                        yield (0, exec_1.exec)('zx', ['--install', scriptFile]);
+                        const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
+                        if (stdout.trim() !== '') {
+                            (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);
+                            yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
+                            yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+                            yield (0, exec_1.exec)('git', ['add', '.']);
+                            yield (0, exec_1.exec)('git', ['commit', `-m"Changes applied by running ${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
+                            yield (0, exec_1.exec)('git', ['push']);
+                            (0, core_1.debug)(`Changes committed and pushed.`);
+                        }
+                        else {
+                            (0, core_1.debug)(`ZX script didn't make any changes to the repository.`);
+                        }
+                    }
                     (0, core_1.debug)(`Temporary Branch Name: '${branchName}'`);
                     (0, core_1.saveState)('branch', branchName);
                     (0, core_1.saveState)('delete', true);
@@ -44402,6 +44435,22 @@ module.exports = require("net");
 
 "use strict";
 module.exports = require("node:events");
+
+/***/ }),
+
+/***/ 7561:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:fs");
+
+/***/ }),
+
+/***/ 9411:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:path");
 
 /***/ }),
 
