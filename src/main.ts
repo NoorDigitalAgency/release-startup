@@ -251,25 +251,7 @@ async function run(): Promise<void> {
 
         await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
 
-        const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
-
-        const scriptFile = join(process.env.GITHUB_WORKSPACE!, stageScriptFile);
-
-        debug(`Looking for ZX script file at: '${scriptFile}'`);
-
-        const scriptFileExists = existsSync(scriptFile);
-
-        debug(`ZX script file exists: '${scriptFileExists}'`);
-
-        const scriptFileWithShebang = scriptFileExists && readFileSync(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
-
-        debug(`ZX script file exists: '${scriptFileExists}'`);
-
-        if ((stage === 'beta' || stage === 'production') && scriptFileWithShebang) {
-
-          debug(`ZX script file found: '${scriptFile}'`);
-
-          await exec('npm', ['install', '--global', 'zx']);
+        if ((stage === 'beta' || stage === 'production')) {
 
           const url = new URL(context.payload.repository!.html_url!);
 
@@ -281,31 +263,50 @@ async function run(): Promise<void> {
 
           await exec('git', ['clone', '--branch', 'develop', githubUrl, '.']);
 
-          debug(`Running script: '${scriptFile}'`);
+          const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 
-          await exec('zx', ['--install', scriptFile]);
+          const scriptFile = join(process.env.GITHUB_WORKSPACE!, stageScriptFile);
 
-          const { stdout} = await getExecOutput('git', ['status', '--porcelain']);
+          debug(`Looking for ZX script file at: '${scriptFile}'`);
 
-          if (stdout.trim() !== '') {
+          const scriptFileExists = existsSync(scriptFile);
 
-            debug(`ZX script made changes to the repository. Committing the changes.`);
+          debug(`ZX script file exists: '${scriptFileExists}'`);
 
-            await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+          const scriptFileWithShebang = scriptFileExists && readFileSync(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
 
-            await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+          debug(`ZX script file has right format: '${scriptFileWithShebang}'`);
 
-            await exec('git', ['add', '.']);
+          if (scriptFileWithShebang) {
 
-            await exec('git', ['commit', `-m"Changes applied by running ${context.repo.repo}/${stageScriptFile} (zx script)"`]);
+            await exec('npm', ['install', '--global', 'zx']);
 
-            await exec('git', ['push']);
+            debug(`Running script: '${scriptFile}'`);
 
-            debug(`Changes committed and pushed.`);
+            await exec('zx', ['--install', scriptFile]);
 
-          } else {
+            const {stdout} = await getExecOutput('git', ['status', '--porcelain']);
 
-            debug(`ZX script didn't make any changes to the repository.`);
+            if (stdout.trim() !== '') {
+
+              debug(`ZX script made changes to the repository. Committing the changes.`);
+
+              await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+
+              await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+
+              await exec('git', ['add', '.']);
+
+              await exec('git', ['commit', `-m"Changes applied by running ${context.repo.repo}/${stageScriptFile} (zx script)"`]);
+
+              await exec('git', ['push']);
+
+              debug(`Changes committed and pushed.`);
+
+            } else {
+
+              debug(`ZX script didn't make any changes to the repository.`);
+            }
           }
         }
 

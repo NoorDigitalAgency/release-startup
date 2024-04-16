@@ -226,35 +226,36 @@ function run() {
                     (0, core_1.debug)(`SHA: '${sha}'`);
                     const branchName = `rebase-${sha}-rsa`;
                     yield octokit.rest.git.createRef({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, sha, ref: `refs/heads/${branchName}` });
-                    const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
-                    const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
-                    (0, core_1.debug)(`Looking for ZX script file at: '${scriptFile}'`);
-                    const scriptFileExists = (0, node_fs_1.existsSync)(scriptFile);
-                    (0, core_1.debug)(`ZX script file exists: '${scriptFileExists}'`);
-                    const scriptFileWithShebang = scriptFileExists && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
-                    (0, core_1.debug)(`ZX script file exists: '${scriptFileExists}'`);
-                    if ((stage === 'beta' || stage === 'production') && scriptFileWithShebang) {
-                        (0, core_1.debug)(`ZX script file found: '${scriptFile}'`);
-                        yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
+                    if ((stage === 'beta' || stage === 'production')) {
                         const url = new URL(github_1.context.payload.repository.html_url);
                         const actor = github_1.context.actor;
                         const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
                         (0, core_1.debug)(`Cloning: '${githubUrl}'`);
                         yield (0, exec_1.exec)('git', ['clone', '--branch', 'develop', githubUrl, '.']);
-                        (0, core_1.debug)(`Running script: '${scriptFile}'`);
-                        yield (0, exec_1.exec)('zx', ['--install', scriptFile]);
-                        const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
-                        if (stdout.trim() !== '') {
-                            (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);
-                            yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
-                            yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
-                            yield (0, exec_1.exec)('git', ['add', '.']);
-                            yield (0, exec_1.exec)('git', ['commit', `-m"Changes applied by running ${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
-                            yield (0, exec_1.exec)('git', ['push']);
-                            (0, core_1.debug)(`Changes committed and pushed.`);
-                        }
-                        else {
-                            (0, core_1.debug)(`ZX script didn't make any changes to the repository.`);
+                        const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
+                        const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
+                        (0, core_1.debug)(`Looking for ZX script file at: '${scriptFile}'`);
+                        const scriptFileExists = (0, node_fs_1.existsSync)(scriptFile);
+                        (0, core_1.debug)(`ZX script file exists: '${scriptFileExists}'`);
+                        const scriptFileWithShebang = scriptFileExists && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
+                        (0, core_1.debug)(`ZX script file has right format: '${scriptFileWithShebang}'`);
+                        if (scriptFileWithShebang) {
+                            yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
+                            (0, core_1.debug)(`Running script: '${scriptFile}'`);
+                            yield (0, exec_1.exec)('zx', ['--install', scriptFile]);
+                            const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
+                            if (stdout.trim() !== '') {
+                                (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);
+                                yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
+                                yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+                                yield (0, exec_1.exec)('git', ['add', '.']);
+                                yield (0, exec_1.exec)('git', ['commit', `-m"Changes applied by running ${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
+                                yield (0, exec_1.exec)('git', ['push']);
+                                (0, core_1.debug)(`Changes committed and pushed.`);
+                            }
+                            else {
+                                (0, core_1.debug)(`ZX script didn't make any changes to the repository.`);
+                            }
                         }
                     }
                     (0, core_1.debug)(`Temporary Branch Name: '${branchName}'`);
