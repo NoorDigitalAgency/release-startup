@@ -255,9 +255,19 @@ async function run(): Promise<void> {
 
         const scriptFile = join(process.env.GITHUB_WORKSPACE!, stageScriptFile);
 
-        if ((stage === 'beta' || stage === 'production') && existsSync(scriptFile) && readFileSync(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx')) {
+        debug(`Looking for ZX script file at: '${scriptFile}'`);
 
-          debug(`ZX Script file found: '${scriptFile}'`);
+        const scriptFileExists = existsSync(scriptFile);
+
+        debug(`ZX script file exists: '${scriptFileExists}'`);
+
+        const scriptFileWithShebang = scriptFileExists && readFileSync(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
+
+        debug(`ZX script file exists: '${scriptFileExists}'`);
+
+        if ((stage === 'beta' || stage === 'production') && scriptFileWithShebang) {
+
+          debug(`ZX script file found: '${scriptFile}'`);
 
           await exec('npm', ['install', '--global', 'zx']);
 

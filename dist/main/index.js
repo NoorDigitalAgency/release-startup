@@ -228,8 +228,13 @@ function run() {
                     yield octokit.rest.git.createRef({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, sha, ref: `refs/heads/${branchName}` });
                     const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
                     const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
-                    if ((stage === 'beta' || stage === 'production') && (0, node_fs_1.existsSync)(scriptFile) && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx')) {
-                        (0, core_1.debug)(`ZX Script file found: '${scriptFile}'`);
+                    (0, core_1.debug)(`Looking for ZX script file at: '${scriptFile}'`);
+                    const scriptFileExists = (0, node_fs_1.existsSync)(scriptFile);
+                    (0, core_1.debug)(`ZX script file exists: '${scriptFileExists}'`);
+                    const scriptFileWithShebang = scriptFileExists && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
+                    (0, core_1.debug)(`ZX script file exists: '${scriptFileExists}'`);
+                    if ((stage === 'beta' || stage === 'production') && scriptFileWithShebang) {
+                        (0, core_1.debug)(`ZX script file found: '${scriptFile}'`);
                         yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
                         const url = new URL(github_1.context.payload.repository.html_url);
                         const actor = github_1.context.actor;
