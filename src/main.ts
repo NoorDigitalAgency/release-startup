@@ -251,6 +251,12 @@ async function run(): Promise<void> {
 
         await octokit.rest.git.createRef({ owner: context.repo.owner, repo: context.repo.repo, sha, ref: `refs/heads/${branchName}` });
 
+        debug(`Temporary Branch Name: '${branchName}'`);
+
+        saveState('branch', branchName);
+
+        saveState('delete', true);
+
         if ((stage === 'beta' || stage === 'production')) {
 
           const url = new URL(context.payload.repository!.html_url!);
@@ -309,12 +315,6 @@ async function run(): Promise<void> {
             }
           }
         }
-
-        debug(`Temporary Branch Name: '${branchName}'`);
-
-        saveState('branch', branchName);
-
-        saveState('delete', true);
 
         head = branchName;
 

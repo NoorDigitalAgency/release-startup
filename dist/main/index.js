@@ -226,6 +226,9 @@ function run() {
                     (0, core_1.debug)(`SHA: '${sha}'`);
                     const branchName = `rebase-${sha}-rsa`;
                     yield octokit.rest.git.createRef({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, sha, ref: `refs/heads/${branchName}` });
+                    (0, core_1.debug)(`Temporary Branch Name: '${branchName}'`);
+                    (0, core_1.saveState)('branch', branchName);
+                    (0, core_1.saveState)('delete', true);
                     if ((stage === 'beta' || stage === 'production')) {
                         const url = new URL(github_1.context.payload.repository.html_url);
                         const actor = github_1.context.actor;
@@ -258,9 +261,6 @@ function run() {
                             }
                         }
                     }
-                    (0, core_1.debug)(`Temporary Branch Name: '${branchName}'`);
-                    (0, core_1.saveState)('branch', branchName);
-                    (0, core_1.saveState)('delete', true);
                     head = branchName;
                     const status = (yield octokit.rest.repos.compareCommits({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, head, base: target })).data.status;
                     (0, core_1.debug)(`Status #3: '${status}'`);
