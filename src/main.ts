@@ -267,7 +267,7 @@ async function run(): Promise<void> {
 
           debug(`Cloning: '${githubUrl}'`);
 
-          await exec('git', ['clone', '--branch', 'develop', githubUrl, '.']);
+          await exec('git', ['clone', '--branch', branchName, githubUrl, '.']);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 

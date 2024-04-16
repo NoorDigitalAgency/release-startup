@@ -234,7 +234,7 @@ function run() {
                         const actor = github_1.context.actor;
                         const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
                         (0, core_1.debug)(`Cloning: '${githubUrl}'`);
-                        yield (0, exec_1.exec)('git', ['clone', '--branch', 'develop', githubUrl, '.']);
+                        yield (0, exec_1.exec)('git', ['clone', '--branch', branchName, githubUrl, '.']);
                         const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
                         const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
                         (0, core_1.debug)(`Looking for ZX script file at: '${scriptFile}'`);
