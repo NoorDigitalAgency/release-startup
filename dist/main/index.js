@@ -238,7 +238,7 @@ function run() {
                         const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
                         (0, core_1.debug)(`Cloning: '${githubUrl}'`);
                         yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
-                        yield (0, exec_1.exec)('git', ['checkout', '--branch', branchName]);
+                        yield (0, exec_1.exec)('git', ['checkout', '-b', branchName]);
                         yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff']);
                         const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
                         const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);

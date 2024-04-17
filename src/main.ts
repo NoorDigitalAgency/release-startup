@@ -275,7 +275,7 @@ async function run(): Promise<void> {
 
           await exec('git', ['clone', githubUrl, '.']);
 
-          await exec('git', ['checkout', '--branch', branchName]);
+          await exec('git', ['checkout', '-b', branchName]);
 
           await exec('git', ['pull', 'origin', branchName, '--ff']);
 
