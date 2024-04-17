@@ -273,7 +273,11 @@ async function run(): Promise<void> {
 
           debug(`Cloning: '${githubUrl}'`);
 
-          await exec('git', ['clone', '--branch', branchName, githubUrl, '.']);
+          await exec('git', ['clone', githubUrl, '.']);
+
+          await exec('git', ['checkout', '--branch', branchName]);
+
+          await exec('git', ['pull', 'origin', branchName, '--ff']);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 
@@ -378,11 +382,7 @@ async function run(): Promise<void> {
 
         debug(`Checked out to '${target}' branch.`);
 
-        await exec('git', ['branch', '--set-upstream-to', `origin/${target}`, target]);
-
-        debug(`Set the upstream to the '${target}' branch.`);
-
-        await exec('git', ['pull', '--ff-only']);
+        await exec('git', ['pull', 'origin', target, '--ff']);
 
         debug(`Pulled the changes from the '${target}' branch.`);
 

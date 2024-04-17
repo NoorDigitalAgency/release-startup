@@ -237,7 +237,9 @@ function run() {
                         const actor = github_1.context.actor;
                         const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
                         (0, core_1.debug)(`Cloning: '${githubUrl}'`);
-                        yield (0, exec_1.exec)('git', ['clone', '--branch', branchName, githubUrl, '.']);
+                        yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
+                        yield (0, exec_1.exec)('git', ['checkout', '--branch', branchName]);
+                        yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff']);
                         const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
                         const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
                         (0, core_1.debug)(`Looking for ZX script file at: '${scriptFile}'`);
@@ -295,9 +297,7 @@ function run() {
                     (0, core_1.debug)('Merging manually because of the changes made by the ZX script.');
                     yield (0, exec_1.exec)('git', ['checkout', '-b', target]);
                     (0, core_1.debug)(`Checked out to '${target}' branch.`);
-                    yield (0, exec_1.exec)('git', ['branch', '--set-upstream-to', `origin/${target}`, target]);
-                    (0, core_1.debug)(`Set the upstream to the '${target}' branch.`);
-                    yield (0, exec_1.exec)('git', ['pull', '--ff-only']);
+                    yield (0, exec_1.exec)('git', ['pull', 'origin', target, '--ff']);
                     (0, core_1.debug)(`Pulled the changes from the '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
                     (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
