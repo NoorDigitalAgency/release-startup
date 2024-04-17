@@ -317,7 +317,7 @@ async function run(): Promise<void> {
 
               await exec('git', ['commit', `-m"Changes applied by running ${context.repo.repo}/${stageScriptFile} (zx script)"`]);
 
-              await exec('git', ['push']);
+              await exec('git', ['push', '--set-upstream', 'origin', branchName]);
 
               debug(`Changes committed and pushed.`);
 
@@ -390,7 +390,7 @@ async function run(): Promise<void> {
 
         debug(`Merged '${head}' branch into '${target}' branch.`);
 
-        await exec('git', ['push']);
+        await exec('git', ['push', '--set-upstream', 'origin', target]);
 
         debug(`Pushed the changes to the '${target}' branch.`);
 

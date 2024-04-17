@@ -259,7 +259,7 @@ function run() {
                                 yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
                                 yield (0, exec_1.exec)('git', ['add', '.']);
                                 yield (0, exec_1.exec)('git', ['commit', `-m"Changes applied by running ${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
-                                yield (0, exec_1.exec)('git', ['push']);
+                                yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', branchName]);
                                 (0, core_1.debug)(`Changes committed and pushed.`);
                                 zxScriptChanges = true;
                             }
@@ -301,7 +301,7 @@ function run() {
                     (0, core_1.debug)(`Pulled the changes from the '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
                     (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
-                    yield (0, exec_1.exec)('git', ['push']);
+                    yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', target]);
                     (0, core_1.debug)(`Pushed the changes to the '${target}' branch.`);
                     manualMerge = true;
                 }
