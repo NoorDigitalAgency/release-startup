@@ -378,6 +378,10 @@ async function run(): Promise<void> {
 
         debug(`Checked out to '${target}' branch.`);
 
+        await exec('git', ['branch', '--set-upstream-to', `origin/${target}`, target]);
+
+        debug(`Set the upstream to the '${target}' branch.`);
+
         await exec('git', ['pull']);
 
         debug(`Pulled the changes from the '${target}' branch.`);
@@ -386,7 +390,7 @@ async function run(): Promise<void> {
 
         debug(`Merged '${head}' branch into '${target}' branch.`);
 
-        await exec('git', ['push', '--set-upstream', 'origin', target]);
+        await exec('git', ['push']);
 
         debug(`Pushed the changes to the '${target}' branch.`);
 

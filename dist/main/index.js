@@ -295,11 +295,13 @@ function run() {
                     (0, core_1.debug)('Merging manually because of the changes made by the ZX script.');
                     yield (0, exec_1.exec)('git', ['checkout', '-b', target]);
                     (0, core_1.debug)(`Checked out to '${target}' branch.`);
+                    yield (0, exec_1.exec)('git', ['branch', '--set-upstream-to', `origin/${target}`, target]);
+                    (0, core_1.debug)(`Set the upstream to the '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['pull']);
                     (0, core_1.debug)(`Pulled the changes from the '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
                     (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
-                    yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', target]);
+                    yield (0, exec_1.exec)('git', ['push']);
                     (0, core_1.debug)(`Pushed the changes to the '${target}' branch.`);
                     manualMerge = true;
                 }
