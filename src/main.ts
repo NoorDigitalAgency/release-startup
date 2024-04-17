@@ -378,6 +378,10 @@ async function run(): Promise<void> {
 
         debug('Merging manually because of the changes made by the ZX script.');
 
+        await exec('git', ['merge', `origin/${target}`, '--ff', '-X', 'mine']);
+
+        debug(`Merged '${target}' branch into the ${head} branch.`);
+
         await exec('git', ['checkout', '-b', target]);
 
         debug(`Checked out to '${target}' branch.`);
