@@ -382,7 +382,7 @@ async function run(): Promise<void> {
 
         debug(`Checked out to '${target}' branch.`);
 
-        await exec('git', ['pull', 'origin', target, '-X', 'theirs']);
+        await exec('git', ['pull', 'origin', target, '--ff', '-X', 'theirs']);
 
         debug(`Pulled the changes from the '${target}' branch.`);
 
