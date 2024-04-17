@@ -100,9 +100,16 @@ const functions_1 = __nccwpck_require__(1786);
 const util_1 = __nccwpck_require__(3837);
 const fs_1 = __nccwpck_require__(7147);
 const functions_2 = __nccwpck_require__(7877);
+const exec_1 = __nccwpck_require__(5082);
+const node_fs_1 = __nccwpck_require__(7561);
+const node_path_1 = __nccwpck_require__(9411);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            const starterBranch = github_1.context.ref.split('/').pop();
+            if (starterBranch !== 'main' && starterBranch != 'release' && starterBranch !== 'develop') {
+                throw new Error(`The release can only be started from the 'main', 'release' or 'develop' branch but started from '${starterBranch}'.`);
+            }
             const token = (0, core_1.getInput)('token', { required: true });
             (0, core_1.debug)(`Token: '${token}'`);
             const stage = (0, core_1.getInput)('stage', { required: true });
@@ -119,6 +126,8 @@ function run() {
             (0, core_1.info)(`Artifact Name is: ${artifactName}`);
             const checkIssues = (0, core_1.getBooleanInput)('check_issues');
             (0, core_1.info)(`Check Issues is: ${checkIssues}`);
+            const zxScriptArguments = (0, core_1.getInput)('zx_script_arguments');
+            (0, core_1.info)(`ZX Script arguments: ${zxScriptArguments}`);
             if (!['production', 'beta', 'alpha'].includes(stage)) {
                 throw new Error(`Invalid stage name '${stage}'.`);
             }
@@ -198,6 +207,7 @@ function run() {
             }
             else {
                 let head = hotfix ? reference : null;
+                let zxScriptChanges = false;
                 if (!hotfix) {
                     if (checkIssues) {
                         const issues = (yield (0, functions_2.getMarkedIssues)(stage, octokit)).filter(issue => { var _a, _b; return !((_b = (_a = issue.labels) === null || _a === void 0 ? void 0 : _a.nodes) !== null && _b !== void 0 ? _b : []).some(label => label.name.trim().toLowerCase() === 'approved'); });
@@ -222,6 +232,42 @@ function run() {
                     (0, core_1.debug)(`Temporary Branch Name: '${branchName}'`);
                     (0, core_1.saveState)('branch', branchName);
                     (0, core_1.saveState)('delete', true);
+                    if ((stage === 'beta' || stage === 'production')) {
+                        const url = new URL(github_1.context.payload.repository.html_url);
+                        const actor = github_1.context.actor;
+                        const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
+                        (0, core_1.debug)(`Cloning: '${githubUrl}'`);
+                        yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
+                        yield (0, exec_1.exec)('git', ['checkout', '-b', branchName]);
+                        yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff']);
+                        const stageScriptFile = (0, node_path_1.join)('.github', 'zx-scripts', `${stage}.mjs`);
+                        const scriptFile = (0, node_path_1.join)(process.env.GITHUB_WORKSPACE, stageScriptFile);
+                        (0, core_1.debug)(`Looking for ZX script file at: '${scriptFile}'`);
+                        const scriptFileExists = (0, node_fs_1.existsSync)(scriptFile);
+                        (0, core_1.debug)(`ZX script file exists: '${scriptFileExists}'`);
+                        const scriptFileWithShebang = scriptFileExists && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
+                        (0, core_1.debug)(`ZX script file has right format: '${scriptFileWithShebang}'`);
+                        if (scriptFileWithShebang) {
+                            yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
+                            (0, core_1.debug)(`Running script: '${scriptFile}'`);
+                            const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
+                            yield (0, exec_1.exec)('zx', ['--install', scriptFile, ...args]);
+                            const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
+                            if (stdout.trim() !== '') {
+                                (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);
+                                yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
+                                yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', '"Noor’s GitHub Bot"']);
+                                yield (0, exec_1.exec)('git', ['add', '.']);
+                                yield (0, exec_1.exec)('git', ['commit', `-m"Changes applied by running ${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
+                                yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', branchName]);
+                                (0, core_1.debug)(`Changes committed and pushed.`);
+                                zxScriptChanges = true;
+                            }
+                            else {
+                                (0, core_1.debug)(`ZX script didn't make any changes to the repository.`);
+                            }
+                        }
+                    }
                     head = branchName;
                     const status = (yield octokit.rest.repos.compareCommits({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, head, base: target })).data.status;
                     (0, core_1.debug)(`Status #3: '${status}'`);
@@ -233,7 +279,7 @@ function run() {
                 if (typeof head !== 'string') {
                     throw new Error(`Invalid 'head' value for creating a pull request.`);
                 }
-                const title = `Generated PR for ${hotfix ? 'hotfix' : stage}/${version}`;
+                let title = `Generated PR for ${hotfix ? 'hotfix' : stage}/${version}`;
                 const body = `A pull request generated by [release-startup](https://github.com/NoorDigitalAgency/release-startup "Release Startup Action") action for **${hotfix ? 'hotfix' : stage}** release version **${version}**.`;
                 (0, core_1.debug)(`Title: '${title}'`);
                 let pull = (yield octokit.rest.pulls.create({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: target, head, title, body })).data;
@@ -242,11 +288,38 @@ function run() {
                     pull = (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number })).data;
                 }
                 (0, core_1.debug)(`Mergeable: ${pull.mergeable}`);
-                if (!pull.mergeable) {
+                let manualMerge = false;
+                if (!pull.mergeable && !zxScriptChanges) {
                     yield octokit.rest.pulls.update({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
                 }
-                const merge = (yield octokit.rest.pulls.merge({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+                else if (!pull.mergeable && zxScriptChanges) {
+                    (0, core_1.debug)('Merging manually because of the changes made by the ZX script.');
+                    yield (0, exec_1.exec)('git', ['merge', `origin/${target}`, '--ff', '-X', 'ours']);
+                    (0, core_1.debug)(`Merged '${target}' branch into the ${head} branch.`);
+                    yield (0, exec_1.exec)('git', ['checkout', '-b', target]);
+                    (0, core_1.debug)(`Checked out to '${target}' branch.`);
+                    yield (0, exec_1.exec)('git', ['pull', 'origin', target, '--ff', '-X', 'theirs']);
+                    (0, core_1.debug)(`Pulled the changes from the '${target}' branch.`);
+                    yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
+                    (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
+                    yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', target]);
+                    (0, core_1.debug)(`Pushed the changes to the '${target}' branch.`);
+                    title = `[ZX MERGED] ${title}`;
+                    yield octokit.rest.pulls.update({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, title: title });
+                    (0, core_1.debug)(`Title updated to: '${title}' and waiting 10 seconds for the pull request to be mergeable.`);
+                    yield (0, functions_1.wait)(10000);
+                    (0, core_1.debug)('Continuing with the release.');
+                    manualMerge = true;
+                }
+                const mergeData = manualMerge ?
+                    (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number })).data :
+                    (yield octokit.rest.pulls.merge({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+                const merge = {
+                    sha: manualMerge ? mergeData.merge_commit_sha : mergeData.sha,
+                    merged: mergeData.merged
+                };
+                (0, core_1.debug)(`Merge result: ${JSON.stringify(merge)}`);
                 (0, core_1.debug)(`Merged: ${merge.merged}`);
                 if (merge.merged) {
                     (0, core_1.info)(`Reference: '${merge.sha}'`);
@@ -44402,6 +44475,22 @@ module.exports = require("net");
 
 "use strict";
 module.exports = require("node:events");
+
+/***/ }),
+
+/***/ 7561:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:fs");
+
+/***/ }),
+
+/***/ 9411:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:path");
 
 /***/ }),
 
