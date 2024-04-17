@@ -297,7 +297,7 @@ function run() {
                     (0, core_1.debug)(`Checked out to '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
                     (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
-                    yield (0, exec_1.exec)('git', ['push']);
+                    yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', target]);
                     (0, core_1.debug)(`Pushed the changes to the '${target}' branch.`);
                     manualMerge = true;
                 }
