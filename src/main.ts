@@ -402,6 +402,8 @@ async function run(): Promise<void> {
 
         await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, title: title });
 
+        await wait(10000);
+
         manualMerge = true;
       }
 
