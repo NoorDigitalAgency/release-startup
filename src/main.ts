@@ -378,6 +378,10 @@ async function run(): Promise<void> {
 
         debug(`Checked out to '${target}' branch.`);
 
+        await exec('git', ['pull']);
+
+        debug(`Pulled the changes from the '${target}' branch.`);
+
         await exec('git', ['merge', '-X', 'theirs', head]);
 
         debug(`Merged '${head}' branch into '${target}' branch.`);
