@@ -295,7 +295,7 @@ function run() {
                 }
                 else if (!pull.mergeable && zxScriptChanges) {
                     (0, core_1.debug)('Merging manually because of the changes made by the ZX script.');
-                    yield (0, exec_1.exec)('git', ['merge', `origin/${target}`, '--ff', '-X', 'mine']);
+                    yield (0, exec_1.exec)('git', ['merge', `origin/${target}`, '--ff', '-X', 'ours']);
                     (0, core_1.debug)(`Merged '${target}' branch into the ${head} branch.`);
                     yield (0, exec_1.exec)('git', ['checkout', '-b', target]);
                     (0, core_1.debug)(`Checked out to '${target}' branch.`);
