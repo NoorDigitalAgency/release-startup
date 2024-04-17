@@ -67,6 +67,10 @@ async function run(): Promise<void> {
 
     info(`Check Issues is: ${checkIssues}`);
 
+    const zxScriptArguments = getInput('zx_script_arguments');
+
+    info(`Artifact Name is: ${artifactName}`);
+
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
       throw new Error(`Invalid stage name '${stage}'.`);
@@ -289,7 +293,7 @@ async function run(): Promise<void> {
 
             debug(`Running script: '${scriptFile}'`);
 
-            await exec('zx', ['--install', scriptFile]);
+            await exec('zx', ['--install', scriptFile, zxScriptArguments]);
 
             const {stdout} = await getExecOutput('git', ['status', '--porcelain']);
 

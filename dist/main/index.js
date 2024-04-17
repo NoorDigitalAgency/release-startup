@@ -126,6 +126,8 @@ function run() {
             (0, core_1.info)(`Artifact Name is: ${artifactName}`);
             const checkIssues = (0, core_1.getBooleanInput)('check_issues');
             (0, core_1.info)(`Check Issues is: ${checkIssues}`);
+            const zxScriptArguments = (0, core_1.getInput)('zx_script_arguments');
+            (0, core_1.info)(`Artifact Name is: ${artifactName}`);
             if (!['production', 'beta', 'alpha'].includes(stage)) {
                 throw new Error(`Invalid stage name '${stage}'.`);
             }
@@ -245,7 +247,7 @@ function run() {
                         if (scriptFileWithShebang) {
                             yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
-                            yield (0, exec_1.exec)('zx', ['--install', scriptFile]);
+                            yield (0, exec_1.exec)('zx', ['--install', scriptFile, zxScriptArguments]);
                             const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
                             if (stdout.trim() !== '') {
                                 (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);

@@ -32,6 +32,10 @@ inputs:
     required: false
     description: Check if issues are marked as approved
     default: 'true'
+  zx_script_arguments:
+    required: false
+    description: Arguments for zx script
+    default: ''
 outputs:
   reference:
     description: Git reference
