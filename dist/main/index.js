@@ -247,7 +247,8 @@ function run() {
                         if (scriptFileWithShebang) {
                             yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
-                            yield (0, exec_1.exec)('zx', ['--install', scriptFile, zxScriptArguments]);
+                            const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
+                            yield (0, exec_1.exec)('zx', ['--install', scriptFile, ...args]);
                             const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
                             if (stdout.trim() !== '') {
                                 (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);

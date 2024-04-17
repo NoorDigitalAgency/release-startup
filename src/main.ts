@@ -293,7 +293,9 @@ async function run(): Promise<void> {
 
             debug(`Running script: '${scriptFile}'`);
 
-            await exec('zx', ['--install', scriptFile, zxScriptArguments]);
+            const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
+
+            await exec('zx', ['--install', scriptFile, ...args]);
 
             const {stdout} = await getExecOutput('git', ['status', '--porcelain']);
 
