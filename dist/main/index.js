@@ -207,6 +207,7 @@ function run() {
             }
             else {
                 let head = hotfix ? reference : null;
+                let zxScriptChanges = false;
                 if (!hotfix) {
                     if (checkIssues) {
                         const issues = (yield (0, functions_2.getMarkedIssues)(stage, octokit)).filter(issue => { var _a, _b; return !((_b = (_a = issue.labels) === null || _a === void 0 ? void 0 : _a.nodes) !== null && _b !== void 0 ? _b : []).some(label => label.name.trim().toLowerCase() === 'approved'); });
@@ -258,6 +259,7 @@ function run() {
                                 yield (0, exec_1.exec)('git', ['commit', `-m"Changes applied by running ${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
                                 yield (0, exec_1.exec)('git', ['push']);
                                 (0, core_1.debug)(`Changes committed and pushed.`);
+                                zxScriptChanges = true;
                             }
                             else {
                                 (0, core_1.debug)(`ZX script didn't make any changes to the repository.`);
@@ -284,11 +286,29 @@ function run() {
                     pull = (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number })).data;
                 }
                 (0, core_1.debug)(`Mergeable: ${pull.mergeable}`);
-                if (!pull.mergeable) {
+                let manualMerge = false;
+                if (!pull.mergeable && !zxScriptChanges) {
                     yield octokit.rest.pulls.update({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
                     throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
                 }
-                const merge = (yield octokit.rest.pulls.merge({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+                else if (!pull.mergeable && zxScriptChanges) {
+                    (0, core_1.debug)('Merging manually because of the changes made by the ZX script.');
+                    yield (0, exec_1.exec)('git', ['checkout', '-b', target]);
+                    (0, core_1.debug)(`Checked out to '${target}' branch.`);
+                    yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
+                    (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
+                    yield (0, exec_1.exec)('git', ['push']);
+                    (0, core_1.debug)(`Pushed the changes to the '${target}' branch.`);
+                    manualMerge = true;
+                }
+                const mergeData = manualMerge ?
+                    (yield octokit.rest.pulls.get({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number })).data :
+                    (yield octokit.rest.pulls.merge({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+                const merge = {
+                    sha: manualMerge ? mergeData.merge_commit_sha : mergeData.sha,
+                    merged: mergeData.merged
+                };
+                (0, core_1.debug)(`Merge result: ${JSON.stringify(merge)}`);
                 (0, core_1.debug)(`Merged: ${merge.merged}`);
                 if (merge.merged) {
                     (0, core_1.info)(`Reference: '${merge.sha}'`);

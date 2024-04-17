@@ -216,6 +216,8 @@ async function run(): Promise<void> {
 
       let head = hotfix ? reference : null;
 
+      let zxScriptChanges = false;
+
       if (!hotfix) {
 
         if(checkIssues) {
@@ -315,6 +317,8 @@ async function run(): Promise<void> {
 
               debug(`Changes committed and pushed.`);
 
+              zxScriptChanges = true;
+
             } else {
 
               debug(`ZX script didn't make any changes to the repository.`);
@@ -358,14 +362,47 @@ async function run(): Promise<void> {
 
       debug(`Mergeable: ${pull.mergeable}`);
 
-      if (!pull.mergeable) {
+      let manualMerge = false;
+
+      if (!pull.mergeable && !zxScriptChanges) {
 
         await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, state: 'closed', title: `[FAILED] ${title}` });
 
         throw new Error(`The pull request #${pull.number} '[FAILED] ${title}' is not mergeable.`);
+
+      } else if (!pull.mergeable && zxScriptChanges) {
+
+        debug('Merging manually because of the changes made by the ZX script.');
+
+        await exec('git', ['checkout', '-b', target]);
+
+        debug(`Checked out to '${target}' branch.`);
+
+        await exec('git', ['merge', '-X', 'theirs', head]);
+
+        debug(`Merged '${head}' branch into '${target}' branch.`);
+
+        await exec('git', ['push']);
+
+        debug(`Pushed the changes to the '${target}' branch.`);
+
+        manualMerge = true;
       }
 
-      const merge = (await octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+      const mergeData = manualMerge ?
+
+        (await octokit.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number })).data :
+
+        (await octokit.rest.pulls.merge({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, merge_method: 'merge' })).data;
+
+      const merge = {
+
+          sha: manualMerge ? (mergeData as {merge_commit_sha : string}).merge_commit_sha : (mergeData as {sha: string}).sha,
+
+          merged: mergeData.merged
+      };
+
+      debug(`Merge result: ${JSON.stringify(merge)}`);
 
       debug(`Merged: ${merge.merged}`);
 
