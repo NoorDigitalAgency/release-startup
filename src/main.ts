@@ -402,7 +402,11 @@ async function run(): Promise<void> {
 
         await octokit.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: pull.number, title: title });
 
+        debug(`Title updated to: '${title}' and waiting 10 seconds for the pull request to be mergeable.`);
+
         await wait(10000);
+
+        debug('Continuing with the release.');
 
         manualMerge = true;
       }

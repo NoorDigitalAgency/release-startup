@@ -307,7 +307,9 @@ function run() {
                     (0, core_1.debug)(`Pushed the changes to the '${target}' branch.`);
                     title = `[ZX MERGED] ${title}`;
                     yield octokit.rest.pulls.update({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, pull_number: pull.number, title: title });
+                    (0, core_1.debug)(`Title updated to: '${title}' and waiting 10 seconds for the pull request to be mergeable.`);
                     yield (0, functions_1.wait)(10000);
+                    (0, core_1.debug)('Continuing with the release.');
                     manualMerge = true;
                 }
                 const mergeData = manualMerge ?
