@@ -382,7 +382,7 @@ async function run(): Promise<void> {
 
         debug(`Set the upstream to the '${target}' branch.`);
 
-        await exec('git', ['pull']);
+        await exec('git', ['pull', '--ff-only']);
 
         debug(`Pulled the changes from the '${target}' branch.`);
 

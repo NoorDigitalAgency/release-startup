@@ -297,7 +297,7 @@ function run() {
                     (0, core_1.debug)(`Checked out to '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['branch', '--set-upstream-to', `origin/${target}`, target]);
                     (0, core_1.debug)(`Set the upstream to the '${target}' branch.`);
-                    yield (0, exec_1.exec)('git', ['pull']);
+                    yield (0, exec_1.exec)('git', ['pull', '--ff-only']);
                     (0, core_1.debug)(`Pulled the changes from the '${target}' branch.`);
                     yield (0, exec_1.exec)('git', ['merge', '-X', 'theirs', head]);
                     (0, core_1.debug)(`Merged '${head}' branch into '${target}' branch.`);
