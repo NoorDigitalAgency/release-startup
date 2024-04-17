@@ -127,7 +127,7 @@ function run() {
             const checkIssues = (0, core_1.getBooleanInput)('check_issues');
             (0, core_1.info)(`Check Issues is: ${checkIssues}`);
             const zxScriptArguments = (0, core_1.getInput)('zx_script_arguments');
-            (0, core_1.info)(`Artifact Name is: ${artifactName}`);
+            (0, core_1.info)(`ZX Script arguments: ${zxScriptArguments}`);
             if (!['production', 'beta', 'alpha'].includes(stage)) {
                 throw new Error(`Invalid stage name '${stage}'.`);
             }

@@ -69,7 +69,7 @@ async function run(): Promise<void> {
 
     const zxScriptArguments = getInput('zx_script_arguments');
 
-    info(`Artifact Name is: ${artifactName}`);
+    info(`ZX Script arguments: ${zxScriptArguments}`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
