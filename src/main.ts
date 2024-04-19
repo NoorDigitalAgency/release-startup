@@ -301,7 +301,16 @@ async function run(): Promise<void> {
 
             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
 
-            await exec('zx', ['--install', scriptFile, ...args]);
+            const {stderr, exitCode, stdout: zxStdout} = await getExecOutput('zx', ['--install', scriptFile, ...args]);
+
+            if (exitCode !== 0) {
+
+              throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
+
+            } else {
+
+                debug(`ZX script executed successfully with output: ${zxStdout}`);
+            }
 
             const {stdout} = await getExecOutput('git', ['status', '--porcelain']);
 

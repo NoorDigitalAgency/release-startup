@@ -1,4 +1,4 @@
-lockfileVersion: '6.0'
+lockfileVersion: '6.1'
 
 settings:
   autoInstallPeers: true
@@ -25,7 +25,7 @@ dependencies:
     version: 14.46.0
   issue-marker:
     specifier: github:NoorDigitalAgency/issue-marker#main
-    version: github.com/NoorDigitalAgency/issue-marker/c64f23b470541db03c59984f900824ffd6da13c0
+    version: github.com/NoorDigitalAgency/issue-marker/47bee87ecf2fbb1a178926786a72a3b3464b7bc9
 
 devDependencies:
   '@types/js-yaml':
@@ -457,8 +457,8 @@ packages:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: false
 
-  github.com/NoorDigitalAgency/issue-marker/c64f23b470541db03c59984f900824ffd6da13c0:
-    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/c64f23b470541db03c59984f900824ffd6da13c0}
+  github.com/NoorDigitalAgency/issue-marker/47bee87ecf2fbb1a178926786a72a3b3464b7bc9:
+    resolution: {tarball: https://codeload.github.com/NoorDigitalAgency/issue-marker/tar.gz/47bee87ecf2fbb1a178926786a72a3b3464b7bc9}
     name: issue-marker
     version: 1.0.0
     dependencies:
