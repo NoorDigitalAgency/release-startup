@@ -99,7 +99,7 @@ const artifact_1 = __nccwpck_require__(7706);
 const functions_1 = __nccwpck_require__(1786);
 const util_1 = __nccwpck_require__(3837);
 const fs_1 = __nccwpck_require__(7147);
-const functions_2 = __nccwpck_require__(7877);
+const functions_2 = __nccwpck_require__(8532);
 const exec_1 = __nccwpck_require__(5082);
 const node_fs_1 = __nccwpck_require__(7561);
 const node_path_1 = __nccwpck_require__(9411);
@@ -251,7 +251,13 @@ function run() {
                             yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
-                            yield (0, exec_1.exec)('zx', ['--install', scriptFile, ...args]);
+                            const { stderr, exitCode, stdout: zxStdout } = yield (0, exec_1.getExecOutput)('zx', ['--install', scriptFile, ...args]);
+                            if (exitCode !== 0) {
+                                throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
+                            }
+                            else {
+                                (0, core_1.debug)(`ZX script executed successfully with output: ${zxStdout}`);
+                            }
                             const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
                             if (stdout.trim() !== '') {
                                 (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);
@@ -44103,7 +44109,7 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 7877:
+/***/ 8532:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
