@@ -297,11 +297,13 @@ async function run(): Promise<void> {
 
             await exec('npm', ['install', '--global', 'zx']);
 
+            await exec('chmod', ['+x', scriptFile]);
+
             debug(`Running script: '${scriptFile}'`);
 
             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
 
-            const {stderr, exitCode, stdout: zxStdout} = await getExecOutput('zx', ['--install', scriptFile, ...args]);
+            const {stderr, exitCode, stdout: zxStdout} = await getExecOutput(scriptFile, args);
 
             if (exitCode !== 0) {
 

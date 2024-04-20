@@ -249,9 +249,10 @@ function run() {
                         (0, core_1.debug)(`ZX script file has right format: '${scriptFileWithShebang}'`);
                         if (scriptFileWithShebang) {
                             yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
+                            yield (0, exec_1.exec)('chmod', ['+x', scriptFile]);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
-                            const { stderr, exitCode, stdout: zxStdout } = yield (0, exec_1.getExecOutput)('zx', ['--install', scriptFile, ...args]);
+                            const { stderr, exitCode, stdout: zxStdout } = yield (0, exec_1.getExecOutput)(scriptFile, args);
                             if (exitCode !== 0) {
                                 throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
                             }
