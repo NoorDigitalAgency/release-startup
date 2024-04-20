@@ -303,7 +303,9 @@ async function run(): Promise<void> {
 
             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
 
-            const {stderr, exitCode, stdout: zxStdout} = await getExecOutput(scriptFile, args);
+            const {stderr, exitCode, stdout: zxStdout} = await getExecOutput(scriptFile, args, { failOnStdErr: false });
+
+            await exec('chmod', ['-x', scriptFile]);
 
             if (exitCode !== 0) {
 
