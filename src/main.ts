@@ -309,7 +309,7 @@ async function run(): Promise<void> {
 
             if (exitCode !== 0) {
 
-              throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
+              throw new Error(`ZX script error: ${stderr}`);
 
             } else {
 
