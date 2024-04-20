@@ -22,7 +22,8 @@
     "@actions/github": "^5.1.1",
     "@actions/io": "^1.1.3",
     "@octokit/graphql-schema": "^14.46.0",
-    "issue-marker": "github:NoorDigitalAgency/issue-marker#main"
+    "issue-marker": "github:NoorDigitalAgency/issue-marker#main",
+    "zx": "^8.0.2"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

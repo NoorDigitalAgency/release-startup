@@ -1,5 +1,6 @@
 import exp from "node:constants";
 import {exec, ExecOptions} from "@actions/exec";
+import {$} from "zx";
 
 export function wait(milliseconds: number) {
 
@@ -102,25 +103,7 @@ export function compareVersions(a: string, b: string): number {
   return simplifyVersion(b) - simplifyVersion(a);
 }
 
-export async function execute(command: string, args: string[] = []) {
+export function execute(command: string, args: string[] = []) {
 
-  let output = '';
-  let error = '';
-
-  const options = {} as ExecOptions;
-  options.listeners = {
-    stdout: (data: Buffer) => {
-      output += data.toString();
-    },
-    stderr: (data: Buffer) => {
-      error += data.toString();
-    }
-  };
-
-  options.failOnStdErr = false;
-
-  const code =await exec(command, args, options);
-
-  return {stdout: output, stderr: error, exitCode: code};
-
+  return $`${command} ${args.join(' ')}`;
 }
