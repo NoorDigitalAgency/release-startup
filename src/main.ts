@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { create } from '@actions/artifact';
-import { wait, versioning, compareVersions } from './functions';
+import { wait, versioning, compareVersions, execute } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -303,7 +303,7 @@ async function run(): Promise<void> {
 
             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
 
-            const {stderr, exitCode, stdout: zxStdout} = await getExecOutput(scriptFile, args, { failOnStdErr: false });
+            const {stderr, exitCode, stdout: zxStdout} = await execute(scriptFile, args);
 
             await exec('chmod', ['-x', scriptFile]);
 

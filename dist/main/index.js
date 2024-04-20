@@ -2,12 +2,22 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 1786:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.compareVersions = exports.versioning = exports.wait = void 0;
+exports.execute = exports.compareVersions = exports.versioning = exports.wait = void 0;
+const exec_1 = __nccwpck_require__(5082);
 function wait(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -73,6 +83,25 @@ function compareVersions(a, b) {
     return simplifyVersion(b) - simplifyVersion(a);
 }
 exports.compareVersions = compareVersions;
+function execute(command, args = []) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let output = '';
+        let error = '';
+        const options = {};
+        options.listeners = {
+            stdout: (data) => {
+                output += data.toString();
+            },
+            stderr: (data) => {
+                error += data.toString();
+            }
+        };
+        options.failOnStdErr = false;
+        const code = yield (0, exec_1.exec)(command, args, options);
+        return { stdout: output, stderr: error, exitCode: code };
+    });
+}
+exports.execute = execute;
 
 
 /***/ }),
@@ -252,7 +281,7 @@ function run() {
                             yield (0, exec_1.exec)('chmod', ['+x', scriptFile]);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
-                            const { stderr, exitCode, stdout: zxStdout } = yield (0, exec_1.getExecOutput)(scriptFile, args, { failOnStdErr: false });
+                            const { stderr, exitCode, stdout: zxStdout } = yield (0, functions_1.execute)(scriptFile, args);
                             yield (0, exec_1.exec)('chmod', ['-x', scriptFile]);
                             if (exitCode !== 0) {
                                 throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
