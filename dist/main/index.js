@@ -252,7 +252,8 @@ function run() {
                             yield (0, exec_1.exec)('chmod', ['+x', scriptFile]);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
-                            const { stderr, exitCode, stdout: zxStdout } = yield (0, exec_1.getExecOutput)(scriptFile, args);
+                            const { stderr, exitCode, stdout: zxStdout } = yield (0, exec_1.getExecOutput)(scriptFile, args, { failOnStdErr: false });
+                            yield (0, exec_1.exec)('chmod', ['-x', scriptFile]);
                             if (exitCode !== 0) {
                                 throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
                             }
