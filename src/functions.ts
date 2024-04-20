@@ -1,5 +1,4 @@
-import exp from "node:constants";
-import {exec, ExecOptions} from "@actions/exec";
+import {exec} from "node:child_process";
 
 export function wait(milliseconds: number) {
 
@@ -102,25 +101,20 @@ export function compareVersions(a: string, b: string): number {
   return simplifyVersion(b) - simplifyVersion(a);
 }
 
-export async function execute(command: string, args: string[] = []) {
+export function shell(command: string, args: string[] = [], options = { shouldRejectOnError: false }): Promise<{stdout: string, stderr: string, exitCode: number}> {
+  return new Promise((resolve, reject) => {
+    const fullCommand = `${command} ${args.join(' ')}`;
 
-  let output = '';
-  let error = '';
-
-  const options = {} as ExecOptions;
-  options.listeners = {
-    stdout: (data: Buffer) => {
-      output += data.toString();
-    },
-    stderr: (data: Buffer) => {
-      error += data.toString();
-    }
-  };
-
-  options.failOnStdErr = false;
-
-  const code =await exec(command, args, options);
-
-  return {stdout: output, stderr: error, exitCode: code};
-
+    exec(fullCommand, (error, stdout, stderr) => {
+      if (error && options.shouldRejectOnError) {
+        reject(new Error(stderr));
+      } else {
+        resolve({
+          exitCode: error ? error.code ?? 1 : 0,
+          stdout,
+          stderr
+        });
+      }
+    });
+  });
 }
