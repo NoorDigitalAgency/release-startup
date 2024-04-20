@@ -1,6 +1,4 @@
-import exp from "node:constants";
-import {exec, ExecOptions} from "@actions/exec";
-import {$} from "zx";
+import {exec} from "node:child_process";
 
 export function wait(milliseconds: number) {
 
@@ -103,7 +101,20 @@ export function compareVersions(a: string, b: string): number {
   return simplifyVersion(b) - simplifyVersion(a);
 }
 
-export function execute(command: string, args: string[] = []) {
+export function shell(command: string, args: string[] = [], options = { shouldRejectOnError: false }): Promise<{stdout: string, stderr: string, exitCode: number}> {
+  return new Promise((resolve, reject) => {
+    const fullCommand = `${command} ${args.join(' ')}`;
 
-  return $`${command} ${args.join(' ')}`;
+    exec(fullCommand, (error, stdout, stderr) => {
+      if (error && options.shouldRejectOnError) {
+        reject(new Error(stderr));
+      } else {
+        resolve({
+          exitCode: error ? error.code ?? 1 : 0,
+          stdout,
+          stderr
+        });
+      }
+    });
+  });
 }
