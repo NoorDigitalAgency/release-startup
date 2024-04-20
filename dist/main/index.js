@@ -275,7 +275,7 @@ function run() {
                             const { stderr, exitCode, stdout: zxStdout } = yield (0, functions_1.shell)(scriptFile, args);
                             yield (0, exec_1.exec)('chmod', ['-x', scriptFile]);
                             if (exitCode !== 0) {
-                                throw new Error(`ZX script failed with exit code ${exitCode} and error message: ${stderr}`);
+                                throw new Error(`ZX script error: ${stderr}`);
                             }
                             else {
                                 (0, core_1.debug)(`ZX script executed successfully with output: ${zxStdout}`);
