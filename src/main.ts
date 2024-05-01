@@ -23,6 +23,7 @@ import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions"
 import { exec, getExecOutput } from "@actions/exec";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { EOL } from "node:os";
 
 async function run(): Promise<void> {
 
@@ -307,13 +308,12 @@ async function run(): Promise<void> {
 
             await exec('chmod', ['-x', scriptFile]);
 
+            debug(`ZX script output:${EOL}${zxStdout}`);
+
             if (exitCode !== 0) {
 
-              throw new Error(`ZX script error: ${stderr}`);
+              throw new Error(`ZX script error:${EOL}${stderr}`);
 
-            } else {
-
-                debug(`ZX script executed successfully with output: ${zxStdout}`);
             }
 
             const {stdout} = await getExecOutput('git', ['status', '--porcelain']);

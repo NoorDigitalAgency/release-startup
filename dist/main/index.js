@@ -119,10 +119,11 @@ const artifact_1 = __nccwpck_require__(7706);
 const functions_1 = __nccwpck_require__(1786);
 const util_1 = __nccwpck_require__(3837);
 const fs_1 = __nccwpck_require__(7147);
-const functions_2 = __nccwpck_require__(8532);
+const functions_2 = __nccwpck_require__(7344);
 const exec_1 = __nccwpck_require__(5082);
 const node_fs_1 = __nccwpck_require__(7561);
 const node_path_1 = __nccwpck_require__(9411);
+const node_os_1 = __nccwpck_require__(612);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -274,11 +275,9 @@ function run() {
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
                             const { stderr, exitCode, stdout: zxStdout } = yield (0, functions_1.shell)(scriptFile, args);
                             yield (0, exec_1.exec)('chmod', ['-x', scriptFile]);
+                            (0, core_1.debug)(`ZX script output:${node_os_1.EOL}${zxStdout}`);
                             if (exitCode !== 0) {
-                                throw new Error(`ZX script error: ${stderr}`);
-                            }
-                            else {
-                                (0, core_1.debug)(`ZX script executed successfully with output: ${zxStdout}`);
+                                throw new Error(`ZX script error:${node_os_1.EOL}${stderr}`);
                             }
                             const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
                             if (stdout.trim() !== '') {
@@ -44131,7 +44130,7 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 8532:
+/***/ 7344:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -44519,6 +44518,14 @@ module.exports = require("node:events");
 
 "use strict";
 module.exports = require("node:fs");
+
+/***/ }),
+
+/***/ 612:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:os");
 
 /***/ }),
 
