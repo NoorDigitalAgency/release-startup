@@ -275,7 +275,7 @@ function run() {
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
                             const { stderr, exitCode, stdout: zxStdout } = yield (0, functions_1.shell)(scriptFile, args);
                             yield (0, exec_1.exec)('chmod', ['-x', scriptFile]);
-                            (0, core_1.debug)(`ZX script output:${node_os_1.EOL}${zxStdout}`);
+                            (0, core_1.info)(`ZX script output:${node_os_1.EOL}${zxStdout}`);
                             if (exitCode !== 0) {
                                 throw new Error(`ZX script error:${node_os_1.EOL}${stderr}`);
                             }
