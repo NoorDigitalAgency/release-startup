@@ -313,7 +313,6 @@ async function run(): Promise<void> {
             if (exitCode !== 0) {
 
               throw new Error(`ZX script error:${EOL}${stderr}`);
-
             }
 
             const {stdout} = await getExecOutput('git', ['status', '--porcelain']);
