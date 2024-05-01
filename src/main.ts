@@ -308,7 +308,7 @@ async function run(): Promise<void> {
 
             await exec('chmod', ['-x', scriptFile]);
 
-            debug(`ZX script output:${EOL}${zxStdout}`);
+            info(`ZX script output:${EOL}${zxStdout}`);
 
             if (exitCode !== 0) {
 
