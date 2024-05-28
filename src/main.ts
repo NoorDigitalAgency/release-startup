@@ -274,6 +274,10 @@ async function run(): Promise<void> {
 
           debug(`Cloning: '${githubUrl}'`);
 
+          await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+
+          await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+
           await exec('git', ['clone', githubUrl, '.']);
 
           await exec('git', ['checkout', '-b', branchName]);
@@ -320,10 +324,6 @@ async function run(): Promise<void> {
             if (stdout.trim() !== '') {
 
               debug(`ZX script made changes to the repository. Committing the changes.`);
-
-              await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
-
-              await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
 
               await exec('git', ['add', '.']);
 
