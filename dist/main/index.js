@@ -258,6 +258,8 @@ function run() {
                         const actor = github_1.context.actor;
                         const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
                         (0, core_1.debug)(`Cloning: '${githubUrl}'`);
+                        yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
+                        yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
                         yield (0, exec_1.exec)('git', ['clone', githubUrl, '.']);
                         yield (0, exec_1.exec)('git', ['checkout', '-b', branchName]);
                         yield (0, exec_1.exec)('git', ['pull', 'origin', branchName, '--ff']);
@@ -282,8 +284,6 @@ function run() {
                             const { stdout } = yield (0, exec_1.getExecOutput)('git', ['status', '--porcelain']);
                             if (stdout.trim() !== '') {
                                 (0, core_1.debug)(`ZX script made changes to the repository. Committing the changes.`);
-                                yield (0, exec_1.exec)('git', ['config', '--global', 'user.email', 'github@noor.se']);
-                                yield (0, exec_1.exec)('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
                                 yield (0, exec_1.exec)('git', ['add', '.']);
                                 yield (0, exec_1.exec)('git', ['commit', '-m', `Changes applied by running "${github_1.context.repo.repo}/${stageScriptFile} (zx script)"`]);
                                 yield (0, exec_1.exec)('git', ['push', '--set-upstream', 'origin', branchName]);
