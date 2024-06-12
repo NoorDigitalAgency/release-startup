@@ -271,7 +271,7 @@ function run() {
                         const scriptFileWithShebang = scriptFileExists && (0, node_fs_1.readFileSync)(scriptFile, 'utf8').trim().startsWith('#!/usr/bin/env zx');
                         (0, core_1.debug)(`ZX script file has right format: '${scriptFileWithShebang}'`);
                         if (scriptFileWithShebang) {
-                            yield (0, exec_1.exec)('npm', ['install', '--global', 'zx']);
+                            yield (0, exec_1.exec)('sudo', ['npm', 'install', '--global', 'zx']);
                             yield (0, exec_1.exec)('chmod', ['+x', scriptFile]);
                             (0, core_1.debug)(`Running script: '${scriptFile}'`);
                             const args = zxScriptArguments.split('\n').map(argument => argument.trim()).filter(argument => argument !== '');
