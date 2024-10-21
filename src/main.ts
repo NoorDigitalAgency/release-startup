@@ -278,11 +278,9 @@ async function run(): Promise<void> {
 
           await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
 
-          await exec('git', ['clone', githubUrl, '.']);
+          await exec('git', ['clone', '--branch', branchName, githubUrl, '.']);
 
-          await exec('git', ['checkout', '-b', branchName]);
-
-          await exec('git', ['pull', 'origin', branchName, '--ff']);
+          await exec('git', ['status']);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 
@@ -329,7 +327,7 @@ async function run(): Promise<void> {
 
               await exec('git', ['commit', '-m', `Changes applied by running "${context.repo.repo}/${stageScriptFile} (zx script)"`]);
 
-              await exec('git', ['push', '--set-upstream', 'origin', branchName]);
+              await exec('git', ['push']);
 
               debug(`Changes committed and pushed.`);
 
