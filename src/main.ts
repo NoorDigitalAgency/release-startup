@@ -15,7 +15,7 @@ import {
 } from '@actions/core';
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
-import { create } from '@actions/artifact';
+import { DefaultArtifactClient } from '@actions/artifact';
 import { wait, versioning, compareVersions, shell } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
@@ -483,13 +483,13 @@ async function run(): Promise<void> {
 
       debug('Created artifact file.');
 
-      const client = create();
+      const client = new DefaultArtifactClient();
 
       try {
 
         debug('Attempting to upload the artifact file.');
 
-        await client.uploadArtifact(artifactName, [file], '.', { retentionDays: 1, continueOnError: false });
+        await client.uploadArtifact(artifactName, [file], '.', { retentionDays: 1 });
 
         debug('Artifact file uploaded.');
 
