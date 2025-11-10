@@ -1,4 +1,4 @@
-import {exec} from "node:child_process";
+import {exec, type ExecException} from "node:child_process";
 import type { GitHub } from '@actions/github/lib/utils';
 import {summary} from "@actions/core";
 
@@ -103,11 +103,11 @@ export function compareVersions(a: string, b: string): number {
   return simplifyVersion(b) - simplifyVersion(a);
 }
 
-export function shell(command: string, args: string[] = [], options = { shouldRejectOnError: false }): Promise<{stdout: string, stderr: string, exitCode: number}> {
+export function shell(command: string, args: string[] = [], options: { shouldRejectOnError?: boolean } = { shouldRejectOnError: false }): Promise<{stdout: string, stderr: string, exitCode: number}> {
   return new Promise((resolve, reject) => {
     const fullCommand = `${command} ${args.join(' ')}`;
 
-    exec(fullCommand, (error, stdout, stderr) => {
+    exec(fullCommand, (error: ExecException | null, stdout: string, stderr: string) => {
       if (error && options.shouldRejectOnError) {
         reject(new Error(stderr));
       } else {
@@ -126,15 +126,15 @@ export function shell(command: string, args: string[] = [], options = { shouldRe
  * Smaller is "closer". Infinity means we could not find a usable fork point.
  */
 async function forkDist(base: string, headLocalRef: string): Promise<number> {
-  const fpTry = await shell("git", ["merge-base", "--fork-point", `origin/${base}`, headLocalRef]);
+  const fpTry = await shell("git", ["merge-base", "--fork-point", `origin/${base}`, headLocalRef], { shouldRejectOnError: true });
   let fp = fpTry.stdout.trim();
   if (!fp) {
-    const fpFallback = await shell("git", ["merge-base", `origin/${base}`, headLocalRef]);
+    const fpFallback = await shell("git", ["merge-base", `origin/${base}`, headLocalRef], { shouldRejectOnError: true });
     fp = fpFallback.stdout.trim();
   }
   if (!fp) return Number.POSITIVE_INFINITY;
 
-  const cnt = await shell("git", ["rev-list", "--count", `${fp}..${headLocalRef}`]);
+  const cnt = await shell("git", ["rev-list", "--count", `${fp}..${headLocalRef}`], { shouldRejectOnError: true });
   const n = parseInt(cnt.stdout.trim(), 10);
   return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
 }
@@ -175,7 +175,7 @@ export async function assertOpenPRs(
   includeDrafts = false
 ): Promise<void> {
   // Ensure up-to-date refs
-  await shell("git", ["fetch", "origin", "--prune", "--quiet"]);
+  await shell("git", ["fetch", "origin", "--prune", "--quiet"], { shouldRejectOnError: true });
 
   const prs = await octokit.paginate(octokit.rest.pulls.list, {
     owner,
@@ -195,7 +195,7 @@ export async function assertOpenPRs(
   for (const pr of candidates) {
     const prNumber = pr.number;
     const localHead = `refs/remotes/origin/pr-${prNumber}`;
-    await shell("git", ["fetch", "origin", `pull/${prNumber}/head:${localHead}`, "--quiet"]);
+    await shell("git", ["fetch", "origin", `+pull/${prNumber}/head:${localHead}`, "--quiet"], { shouldRejectOnError: true });
 
     const dDevelop = await forkDist("develop", localHead);
     const dMain = await forkDist("main", localHead);
@@ -228,11 +228,11 @@ export async function assertOpenPRs(
  */
 export async function assertCorrectHotfixBranch(branch: string, stageBranch: "main" | "release"): Promise<void> {
   // Ensure up-to-date refs
-  await shell("git", ["fetch", "origin", "--prune", "--quiet"]);
+  await shell("git", ["fetch", "origin", "--prune", "--quiet"], { shouldRejectOnError: true });
 
   // Make sure we have the branch locally
   const localRef = `refs/remotes/origin/${branch}`;
-  await shell("git", ["fetch", "origin", `${branch}:${localRef}`, "--quiet"]);
+  await shell("git", ["fetch", "origin", `+${branch}:${localRef}`, "--quiet"], { shouldRejectOnError: true });
 
   // Compute distances to the three canonical branches
   const dDevelop = await forkDist("develop", localRef);
