@@ -1,4 +1,5 @@
 import {exec} from "node:child_process";
+import type { GitHub } from '@actions/github/lib/utils';
 
 export function wait(milliseconds: number) {
 
@@ -117,4 +118,147 @@ export function shell(command: string, args: string[] = [], options = { shouldRe
       }
     });
   });
+}
+
+type Octokit = InstanceType<typeof GitHub>;
+
+export interface CheckUnmergedPRsOptions {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  baseBranch?: string;
+}
+
+export interface PullRequestSummary {
+  title: string;
+  url: string;
+}
+
+type OriginBranch = 'main' | 'release';
+
+interface MergeBaseInfo {
+  branch: string;
+  sha: string;
+  timestamp: number;
+}
+
+const ORIGIN_BRANCHES: OriginBranch[] = ['main', 'release'];
+const mergeBaseCache = new Map<string, MergeBaseInfo | null>();
+
+export async function checkUnmergedPRs(options: CheckUnmergedPRsOptions): Promise<PullRequestSummary[]> {
+  const {
+    octokit,
+    owner,
+    repo,
+    baseBranch = 'develop'
+  } = options;
+
+  if (!octokit) {
+    throw new Error('An authenticated Octokit client must be provided to check for unmerged PRs.');
+  }
+
+  const pullRequests = await octokit.paginate(
+    octokit.rest.pulls.list,
+    {
+      owner,
+      repo,
+      state: 'open',
+      per_page: 100
+    },
+    response => response.data
+  );
+
+  const pending = [];
+
+  for (const pr of pullRequests) {
+    if (pr.base.ref !== baseBranch) {
+      continue;
+    }
+
+    if (await isDerivedFromOriginBranch(octokit, owner, repo, pr.head.ref, baseBranch)) {
+      pending.push({
+        title: pr.title,
+        url: pr.html_url
+      });
+    }
+  }
+
+  return pending;
+}
+
+async function isDerivedFromOriginBranch(octokit: Octokit, owner: string, repo: string, headRef: string, baseBranch: string): Promise<boolean> {
+  if (ORIGIN_BRANCHES.some(origin => origin === headRef)) {
+    return true;
+  }
+
+  const developMergeBase = await getMergeBaseInfo(octokit, owner, repo, baseBranch, headRef);
+  const candidateInfo = (await Promise.all(
+    ORIGIN_BRANCHES.map(origin => getMergeBaseInfo(octokit, owner, repo, origin, headRef))
+  )).filter((info): info is MergeBaseInfo => Boolean(info));
+
+  if (candidateInfo.length === 0) {
+    return false;
+  }
+
+  candidateInfo.sort((a, b) => b.timestamp - a.timestamp);
+  const bestCandidate = candidateInfo[0];
+
+  if (!developMergeBase) {
+    return true;
+  }
+
+  if (bestCandidate.timestamp > developMergeBase.timestamp) {
+    return true;
+  }
+
+  return bestCandidate.timestamp === developMergeBase.timestamp && bestCandidate.sha !== developMergeBase.sha;
+}
+
+async function getMergeBaseInfo(octokit: Octokit, owner: string, repo: string, base: string, head: string): Promise<MergeBaseInfo | null> {
+  const cacheKey = `${base}->${head}`;
+
+  if (mergeBaseCache.has(cacheKey)) {
+    return mergeBaseCache.get(cacheKey) ?? null;
+  }
+
+  try {
+    const comparison = await octokit.rest.repos.compareCommits({
+      owner,
+      repo,
+      base,
+      head
+    });
+
+    const commit = comparison.data.merge_base_commit;
+
+    if (!commit) {
+      mergeBaseCache.set(cacheKey, null);
+      return null;
+    }
+
+    const timestamp = new Date(
+      commit.commit?.committer?.date ??
+      commit.commit?.author?.date ??
+      0
+    ).getTime();
+
+    const info: MergeBaseInfo = {
+      branch: base,
+      sha: commit.sha,
+      timestamp: Number.isNaN(timestamp) ? 0 : timestamp
+    };
+
+    mergeBaseCache.set(cacheKey, info);
+
+    return info;
+  } catch (error) {
+    const status = typeof error === 'object' && error !== null && 'status' in error ? (error as { status?: number }).status : undefined;
+
+    if (status === 404) {
+      mergeBaseCache.set(cacheKey, null);
+      return null;
+    }
+
+    throw error;
+  }
 }
