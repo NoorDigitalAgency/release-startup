@@ -72,6 +72,39 @@ async function run(): Promise<void> {
 
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
+    const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
+    const repositoryUrl = new URL(context.payload.repository!.html_url!);
+    const actor = context.actor;
+    const gitRemoteUrl = `${repositoryUrl.protocol}//${actor}:${token}@${repositoryUrl.hostname}${repositoryUrl.pathname}.git`;
+
+    let gitConfigured = false;
+    async function ensureGitIdentity(): Promise<void> {
+      if (gitConfigured) {
+        return;
+      }
+      await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
+      await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
+      gitConfigured = true;
+    }
+
+    async function prepareRepository(branch: string): Promise<void> {
+      await ensureGitIdentity();
+      const repoExists = existsSync(join(workspace, '.git'));
+
+      if (!repoExists) {
+        debug(`Cloning repository into workspace on branch '${branch}'.`);
+        await exec('git', ['clone', '--branch', branch, gitRemoteUrl, '.']);
+      } else {
+        debug(`Repository already present. Updating branch '${branch}'.`);
+        await exec('git', ['remote', 'set-url', 'origin', gitRemoteUrl]);
+        await exec('git', ['fetch', 'origin', '--prune']);
+        await exec('git', ['fetch', 'origin', branch]);
+        await exec('git', ['checkout', '-B', branch, `origin/${branch}`]);
+      }
+
+      await exec('git', ['status']);
+    }
+
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
       throw new Error(`Invalid stage name '${stage}'.`);
@@ -181,6 +214,10 @@ async function run(): Promise<void> {
 
     saveState('delete', false);
 
+    const defaultWorkingBranch = stage === 'alpha' ? 'develop' : target;
+
+    await prepareRepository(defaultWorkingBranch);
+
     let gitReference;
 
     if (stage === 'alpha') {
@@ -270,21 +307,7 @@ async function run(): Promise<void> {
 
         if ((stage === 'beta' || stage === 'production')) {
 
-          const url = new URL(context.payload.repository!.html_url!);
-
-          const actor = context.actor;
-
-          const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
-
-          debug(`Cloning: '${githubUrl}'`);
-
-          await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
-
-          await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
-
-          await exec('git', ['clone', '--branch', branchName, githubUrl, '.']);
-
-          await exec('git', ['status']);
+          await prepareRepository(branchName);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 
