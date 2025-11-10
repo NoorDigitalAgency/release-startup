@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, shell } from './functions';
+import { wait, versioning, compareVersions, shell, assertOpenPRs, assertCorrectHotfixBranch } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -77,9 +77,11 @@ async function run(): Promise<void> {
       throw new Error(`Invalid stage name '${stage}'.`);
     }
 
-    if (hotfix && stage !== 'production') {
+    const hotfixBranches = ['release', 'main'];
 
-      throw new Error(`A hotfix can only be released on 'production' but '${stage}' is specified as the stage.`);
+    if (hotfix && !hotfixBranches.includes(reference)) {
+
+      throw new Error(`A hotfix can only be released on 'release' or 'main' but '${reference}' is specified as the reference.`);
     }
 
     const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
@@ -182,6 +184,8 @@ async function run(): Promise<void> {
     let gitReference;
 
     if (stage === 'alpha') {
+
+      await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
 
       if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string') {
 
@@ -350,6 +354,10 @@ async function run(): Promise<void> {
 
           throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
         }
+
+      } else {
+
+        await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
       }
 
       debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
