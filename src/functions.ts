@@ -1,5 +1,6 @@
 import {exec} from "node:child_process";
 import type { GitHub } from '@actions/github/lib/utils';
+import {summary} from "@actions/core";
 
 export function wait(milliseconds: number) {
 
@@ -120,145 +121,159 @@ export function shell(command: string, args: string[] = [], options = { shouldRe
   });
 }
 
-type Octokit = InstanceType<typeof GitHub>;
+/**
+ * Helper: count commits since the fork point between origin/<base> and <headLocalRef>.
+ * Smaller is "closer". Infinity means we could not find a usable fork point.
+ */
+async function forkDist(base: string, headLocalRef: string): Promise<number> {
+  const fpTry = await shell("git", ["merge-base", "--fork-point", `origin/${base}`, headLocalRef]);
+  let fp = fpTry.stdout.trim();
+  if (!fp) {
+    const fpFallback = await shell("git", ["merge-base", `origin/${base}`, headLocalRef]);
+    fp = fpFallback.stdout.trim();
+  }
+  if (!fp) return Number.POSITIVE_INFINITY;
 
-export interface CheckUnmergedPRsOptions {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  baseBranch?: string;
+  const cnt = await shell("git", ["rev-list", "--count", `${fp}..${headLocalRef}`]);
+  const n = parseInt(cnt.stdout.trim(), 10);
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
 }
 
-export interface PullRequestSummary {
-  title: string;
-  url: string;
+/**
+ * Helper: given a PR head commit fetched to <localHeadRef>, decide which of the
+ * candidate bases it is "closest to" by fork-point distance. Ties prefer the
+ * later item in preferenceOrder (because of <=), which lets you bias decisions.
+ */
+function chooseBestBase(distances: { [base: string]: number }, preferenceOrder: string[]): string {
+  let bestBase = preferenceOrder[0];
+  let bestDist = distances[bestBase];
+  for (let i = 1; i < preferenceOrder.length; i++) {
+    const b = preferenceOrder[i];
+    const d = distances[b];
+    if (
+      (bestDist === Number.POSITIVE_INFINITY && d !== Number.POSITIVE_INFINITY) ||
+      (d !== Number.POSITIVE_INFINITY && bestDist !== Number.POSITIVE_INFINITY && d <= bestDist)
+    ) {
+      bestBase = b;
+      bestDist = d;
+    }
+  }
+  return bestBase;
 }
 
-type OriginBranch = 'main' | 'release';
+/**
+ * 1) assertOpenPRs
+ * Scans OPEN PRs targeting develop and flags any whose head branch appears based on main or release.
+ * If any are found, it writes a summary:
+ *   "Open Hotfix PRs Detected:"
+ * followed by a list of PR titles hyperlinked to their URLs, then throws an Error.
+ */
+export async function assertOpenPRs(
+  octokit: InstanceType<typeof GitHub>,
+  owner: string,
+  repo: string,
+  includeDrafts = false
+): Promise<void> {
+  // Ensure up-to-date refs
+  await shell("git", ["fetch", "origin", "--prune", "--quiet"]);
 
-interface MergeBaseInfo {
-  branch: string;
-  sha: string;
-  timestamp: number;
-}
-
-const ORIGIN_BRANCHES: OriginBranch[] = ['main', 'release'];
-const mergeBaseCache = new Map<string, MergeBaseInfo | null>();
-
-export async function checkUnmergedPRs(options: CheckUnmergedPRsOptions): Promise<PullRequestSummary[]> {
-  const {
-    octokit,
+  const prs = await octokit.paginate(octokit.rest.pulls.list, {
     owner,
     repo,
-    baseBranch = 'develop'
-  } = options;
+    state: "open",
+    base: "develop",
+    per_page: 100,
+  });
 
-  if (!octokit) {
-    throw new Error('An authenticated Octokit client must be provided to check for unmerged PRs.');
+  const candidates = includeDrafts ? prs : prs.filter(p => !p.draft);
+  if (candidates.length === 0) {
+    return; // nothing to report and no failure
   }
 
-  const pullRequests = await octokit.paginate(
-    octokit.rest.pulls.list,
-    {
-      owner,
-      repo,
-      state: 'open',
-      per_page: 100
-    },
-    response => response.data
+  const offenders: { title: string; url: string }[] = [];
+
+  for (const pr of candidates) {
+    const prNumber = pr.number;
+    const localHead = `refs/remotes/origin/pr-${prNumber}`;
+    await shell("git", ["fetch", "origin", `pull/${prNumber}/head:${localHead}`, "--quiet"]);
+
+    const dDevelop = await forkDist("develop", localHead);
+    const dMain = await forkDist("main", localHead);
+    const dRelease = await forkDist("release", localHead);
+
+    const distances = { develop: dDevelop, main: dMain, release: dRelease } as Record<string, number>;
+    // Preference order: develop, then main, then release. Ties choose the later item (<=),
+    // which means if develop ties with main/release, we err on the side of hotfix detection.
+    const best = chooseBestBase(distances, ["develop", "main", "release"]);
+
+    if (best !== "develop" && distances[best] !== Number.POSITIVE_INFINITY) {
+      offenders.push({ title: pr.title ?? "(no title)", url: pr.html_url });
+    }
+  }
+
+  if (offenders.length > 0) {
+    const list = offenders.map(o => `- [${o.title}](${o.url})`).join("\n");
+    await summary
+      .addRaw("Open Hotfix PRs Detected:", true)
+      .addRaw(list, true)
+      .write();
+
+    throw new Error(`Detected ${offenders.length} open hotfix PR(s) into develop based on main or release.`);
+  }
+}
+
+/**
+ * Verifies that a given branch was actually branched from the intended stage branch ("main" or "release"),
+ * and not from any other branch. Ties count as failure. On failure, it adds an explanatory summary and throws.
+ */
+export async function assertCorrectHotfixBranch(branch: string, stageBranch: "main" | "release"): Promise<void> {
+  // Ensure up-to-date refs
+  await shell("git", ["fetch", "origin", "--prune", "--quiet"]);
+
+  // Make sure we have the branch locally
+  const localRef = `refs/remotes/origin/${branch}`;
+  await shell("git", ["fetch", "origin", `${branch}:${localRef}`, "--quiet"]);
+
+  // Compute distances to the three canonical branches
+  const dDevelop = await forkDist("develop", localRef);
+  const dMain = await forkDist("main", localRef);
+  const dRelease = await forkDist("release", localRef);
+
+  const distances = { develop: dDevelop, main: dMain, release: dRelease };
+
+  // We require the stageBranch to be strictly closest. Ties are failure.
+  // Preference: put the expected stage FIRST so <= will prefer a competing base later in the list,
+  // which causes the assertion to FAIL on ties (conservative).
+  const preference = stageBranch === "main"
+    ? ["main", "release", "develop"]
+    : ["release", "main", "develop"];
+
+  const detected = chooseBestBase(distances, preference);
+
+  const expectedDist = distances[stageBranch];
+  const tieOrBetterOther = Object.entries(distances).some(([b, d]) =>
+    b !== stageBranch &&
+    d !== Number.POSITIVE_INFINITY &&
+    expectedDist !== Number.POSITIVE_INFINITY &&
+    d <= expectedDist
   );
 
-  const pending = [];
+  const ok = detected === stageBranch && !tieOrBetterOther;
 
-  for (const pr of pullRequests) {
-    if (pr.base.ref !== baseBranch) {
-      continue;
-    }
+  if (!ok) {
+    const rule = `The hotfix branch intended for the ${stageBranch} stage must be branched from \`${stageBranch}\`.`;
+    const details =
+      `Distances (commits since fork point): ` +
+      `develop=${dDevelop === Number.POSITIVE_INFINITY ? "∞" : dDevelop}, ` +
+      `main=${dMain === Number.POSITIVE_INFINITY ? "∞" : dMain}, ` +
+      `release=${dRelease === Number.POSITIVE_INFINITY ? "∞" : dRelease}.`;
 
-    if (await isDerivedFromOriginBranch(octokit, owner, repo, pr.head.ref, baseBranch)) {
-      pending.push({
-        title: pr.title,
-        url: pr.html_url
-      });
-    }
-  }
+    await summary
+      .addRaw(rule, true)
+      .addRaw(`Branch \`${branch}\` appears closer to \`${detected}\`.`, true)
+      .addRaw(details, true)
+      .write();
 
-  return pending;
-}
-
-async function isDerivedFromOriginBranch(octokit: Octokit, owner: string, repo: string, headRef: string, baseBranch: string): Promise<boolean> {
-  if (ORIGIN_BRANCHES.some(origin => origin === headRef)) {
-    return true;
-  }
-
-  const developMergeBase = await getMergeBaseInfo(octokit, owner, repo, baseBranch, headRef);
-  const candidateInfo = (await Promise.all(
-    ORIGIN_BRANCHES.map(origin => getMergeBaseInfo(octokit, owner, repo, origin, headRef))
-  )).filter((info): info is MergeBaseInfo => Boolean(info));
-
-  if (candidateInfo.length === 0) {
-    return false;
-  }
-
-  candidateInfo.sort((a, b) => b.timestamp - a.timestamp);
-  const bestCandidate = candidateInfo[0];
-
-  if (!developMergeBase) {
-    return true;
-  }
-
-  if (bestCandidate.timestamp > developMergeBase.timestamp) {
-    return true;
-  }
-
-  return bestCandidate.timestamp === developMergeBase.timestamp && bestCandidate.sha !== developMergeBase.sha;
-}
-
-async function getMergeBaseInfo(octokit: Octokit, owner: string, repo: string, base: string, head: string): Promise<MergeBaseInfo | null> {
-  const cacheKey = `${base}->${head}`;
-
-  if (mergeBaseCache.has(cacheKey)) {
-    return mergeBaseCache.get(cacheKey) ?? null;
-  }
-
-  try {
-    const comparison = await octokit.rest.repos.compareCommits({
-      owner,
-      repo,
-      base,
-      head
-    });
-
-    const commit = comparison.data.merge_base_commit;
-
-    if (!commit) {
-      mergeBaseCache.set(cacheKey, null);
-      return null;
-    }
-
-    const timestamp = new Date(
-      commit.commit?.committer?.date ??
-      commit.commit?.author?.date ??
-      0
-    ).getTime();
-
-    const info: MergeBaseInfo = {
-      branch: base,
-      sha: commit.sha,
-      timestamp: Number.isNaN(timestamp) ? 0 : timestamp
-    };
-
-    mergeBaseCache.set(cacheKey, info);
-
-    return info;
-  } catch (error) {
-    const status = typeof error === 'object' && error !== null && 'status' in error ? (error as { status?: number }).status : undefined;
-
-    if (status === 404) {
-      mergeBaseCache.set(cacheKey, null);
-      return null;
-    }
-
-    throw error;
+    throw new Error(`Hotfix branch "${branch}" is not uniquely based on "${stageBranch}".`);
   }
 }
