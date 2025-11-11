@@ -1,6 +1,7 @@
 import {exec, type ExecException} from "node:child_process";
 import type { GitHub } from '@actions/github/lib/utils';
 import {summary, info, debug} from "@actions/core";
+import { inspect as stringify } from 'util';
 
 export function wait(milliseconds: number) {
 
@@ -227,19 +228,30 @@ export async function assertOpenPRs(
  * and not from any other branch. Ties count as failure. On failure, it adds an explanatory summary and throws.
  */
 export async function assertCorrectHotfixBranch(branch: string, stageBranch: "main" | "release"): Promise<void> {
+  
+  debug(`Checking hotfix branch '${branch}' is based on '${stageBranch}'.`);
+  
   // Ensure up-to-date refs
   await shell("git", ["fetch", "origin", "--prune"], { shouldRejectOnError: true });
+  
+  debug(`Fetched refs.`);
 
   // Make sure we have the branch locally
   const localRef = `refs/remotes/origin/${branch}`;
   await shell("git", ["fetch", "origin", `+${branch}:${localRef}`], { shouldRejectOnError: true });
+
+  debug(`Fetched branch '${branch}'.`);
 
   // Compute distances to the three canonical branches
   const dDevelop = await forkDist("develop", localRef);
   const dMain = await forkDist("main", localRef);
   const dRelease = await forkDist("release", localRef);
 
+  debug(`Distances: ${stringify({ develop: dDevelop, main: dMain, release: dRelease })}`);
+
   const distances = { develop: dDevelop, main: dMain, release: dRelease };
+
+  debug(`Distances: ${stringify(distances)}`);
 
   // We require the stageBranch to be strictly closest. Ties are failure.
   // Preference: put the expected stage FIRST so <= will prefer a competing base later in the list,
@@ -248,7 +260,11 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
     ? ["main", "release", "develop"]
     : ["release", "main", "develop"];
 
+  debug(`Preference: ${stringify(preference)}`);
+
   const detected = chooseBestBase(distances, preference);
+
+  debug(`Detected: ${detected}`);
 
   const expectedDist = distances[stageBranch];
   const tieOrBetterOther = Object.entries(distances).some(([b, d]) =>
