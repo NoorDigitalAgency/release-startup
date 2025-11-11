@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, shell, assertOpenPRs, assertCorrectHotfixBranch, prepareRepository } from './functions';
+import { wait, versioning, compareVersions, shell, assertOpenPRs, assertCorrectHotfixBranch, prepareRepository, BlockingHotfixPRError, ensureFreshWorkflowRun, uploadUnmergedPrFlagArtifact } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -73,6 +73,8 @@ async function run(): Promise<void> {
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
     const octokit = getOctokit(token);
+
+    await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId);
 
     const url = new URL(context.payload.repository!.clone_url!);
 
@@ -210,7 +212,21 @@ async function run(): Promise<void> {
 
       await prepareRepository(url, 'develop');
 
-      await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
+      try {
+        await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
+      } catch (error) {
+        if (error instanceof BlockingHotfixPRError) {
+          try {
+            await uploadUnmergedPrFlagArtifact();
+          } catch (artifactError) {
+            warning('⚠️ DO NOT RE-RUN THIS FAILED STEPS, otherwise, the release branch will fall behind. ⚠️\n - ⚠️ RUN A FRESH RUN of the Alpha Release workflow after merging the hotfix PR(s). ⚠️');
+            startGroup('Flag Artifact Upload Error');
+            debug(`${stringify(artifactError, { depth: 5 })}`);
+            endGroup();
+          }
+        }
+        throw error;
+      }
 
       if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string') {
 

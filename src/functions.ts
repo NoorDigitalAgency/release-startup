@@ -1,7 +1,10 @@
 import {exec, type ExecException} from "node:child_process";
 import type { GitHub } from '@actions/github/lib/utils';
-import {summary, info, debug} from "@actions/core";
+import {summary, info, debug, warning, startGroup, endGroup} from "@actions/core";
 import { inspect as stringify } from 'util';
+import { DefaultArtifactClient } from "@actions/artifact";
+import { rmRF } from "@actions/io";
+import { writeFileSync } from "node:fs";
 
 export function wait(milliseconds: number) {
 
@@ -102,6 +105,55 @@ function simplifyVersion(version: string): number {
 export function compareVersions(a: string, b: string): number {
 
   return simplifyVersion(b) - simplifyVersion(a);
+}
+
+export const UNMERGED_PR_FLAG_ARTIFACT = 'release-startup-unmerged-pr-flag';
+const UNMERGED_PR_FLAG_FILE = '.release-startup-unmerged-pr-flag';
+
+export async function ensureFreshWorkflowRun(
+  octokit: InstanceType<typeof GitHub>,
+  owner: string,
+  repo: string,
+  runId: number
+): Promise<void> {
+  const artifacts = await octokit.paginate(
+    octokit.rest.actions.listWorkflowRunArtifacts,
+    { owner, repo, run_id: runId, per_page: 100 },
+    response => response.data.artifacts
+  );
+
+  const hasFlag = artifacts.some(artifact => artifact.name === UNMERGED_PR_FLAG_ARTIFACT);
+
+  if (hasFlag) {
+    const warningMessage = "⚠️ This workflow run previously failed because of unmerged PRs. Please start a brand-new workflow run instead of re-running this one.";
+    warning(warningMessage);
+    throw new Error("Detected an unmerged-PR flag artifact from a prior attempt. This workflow run cannot be re-run; trigger a fresh run to continue.");
+  }
+}
+
+export async function uploadUnmergedPrFlagArtifact(): Promise<void> {
+  const client = new DefaultArtifactClient();
+  const payload = JSON.stringify({ reason: "unmerged_prs", createdAt: new Date().toISOString() }, null, 2);
+  writeFileSync(UNMERGED_PR_FLAG_FILE, payload);
+  try {
+    await client.uploadArtifact(UNMERGED_PR_FLAG_ARTIFACT, [UNMERGED_PR_FLAG_FILE], '.', { retentionDays: 1 });
+  } finally {
+    try {
+      await rmRF(UNMERGED_PR_FLAG_FILE);
+    } catch (error) {
+      warning('Unable to delete the unmerged PR flag artifact file.');
+      startGroup('Flag Artifact Cleanup Error');
+      debug(`${stringify(error, { depth: 5 })}`);
+      endGroup();
+    }
+  }
+}
+
+export class BlockingHotfixPRError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BlockingHotfixPRError";
+  }
 }
 
 export function shell(command: string, args: string[] = [], options: { shouldRejectOnError?: boolean } = { shouldRejectOnError: false }): Promise<{stdout: string, stderr: string, exitCode: number}> {
@@ -227,7 +279,7 @@ export async function assertOpenPRs(
       .addRaw(list, true)
       .write();
 
-    throw new Error(`Detected ${offenders.length} open hotfix PR(s) into develop based on main or release.`);
+    throw new BlockingHotfixPRError(`Detected ${offenders.length} open hotfix PR(s) into develop based on main or release.`);
   }
 }
 
