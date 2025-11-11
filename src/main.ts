@@ -76,11 +76,9 @@ async function run(): Promise<void> {
 
     url.password = token;
 
+    url.username = (await getOctokit(token).rest.users.getAuthenticated()).data.login;
+
     debug(`URL: ${stringify(url)}`);
-
-    const repositoryUrl = url.href;
-
-    debug(`Repository URL: '${repositoryUrl}'`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
@@ -102,7 +100,7 @@ async function run(): Promise<void> {
 
       debug(`Preparing repository for hotfix branch '${reference}'.`);
 
-      await prepareRepository(repositoryUrl, reference, context.actor);
+      await prepareRepository(url, reference, context.actor);
 
       debug(`Asserting hotfix branch '${reference}' is based on '${target}'.`);
 
@@ -206,7 +204,7 @@ async function run(): Promise<void> {
 
     if (stage === 'alpha') {
 
-      await prepareRepository(repositoryUrl, 'develop', context.actor);
+      await prepareRepository(url, 'develop', context.actor);
 
       await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
 
@@ -293,7 +291,7 @@ async function run(): Promise<void> {
 
         if ((stage === 'beta' || stage === 'production')) {
 
-          await prepareRepository(repositoryUrl, branchName, context.actor);
+          await prepareRepository(url, branchName, context.actor);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 

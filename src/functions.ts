@@ -278,7 +278,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
   }
 }
 
-export async function prepareRepository(gitRemoteUrl: string, branch: string, username: string): Promise<void> {
+export async function prepareRepository(gitRemoteUrl: URL, branch: string, username: string): Promise<void> {
   const email = `${username}@github.com`;
   try {
     await shell('git', ['config', '--global', 'user.email'], { shouldRejectOnError: true });
@@ -295,9 +295,10 @@ export async function prepareRepository(gitRemoteUrl: string, branch: string, us
   try {
     await shell('git', ['status'], { shouldRejectOnError: true });
   } catch (error) {
-    info(`Git repository not found. Cloning repository from ${gitRemoteUrl}.`);
-    await shell('git', ['clone', '--branch', branch, gitRemoteUrl, '.'], { shouldRejectOnError: true });
-    await shell('git', ['remote', 'set-url', 'origin', gitRemoteUrl], { shouldRejectOnError: true });
+    const href = gitRemoteUrl.href;
+    info(`Git repository not found. Cloning repository from ${href}.`);
+    await shell('git', ['clone', '--branch', branch, href, '.'], { shouldRejectOnError: true });
+    await shell('git', ['remote', 'set-url', 'origin', href], { shouldRejectOnError: true });
     await shell('git', ['fetch', 'origin', '--prune'], { shouldRejectOnError: true });
   }
   await shell('git', ['fetch', 'origin', branch], { shouldRejectOnError: true });
