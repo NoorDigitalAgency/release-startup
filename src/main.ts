@@ -90,6 +90,13 @@ async function run(): Promise<void> {
 
     info(`Target of release: '${target}'`);
 
+    if (hotfix && reference !== '') {
+
+      await prepareRepository(repositoryUrl, reference, context.actor);
+
+      await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
+    }
+
     const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
 
     info(`Source of release: '${source}'`);
@@ -345,11 +352,6 @@ async function run(): Promise<void> {
           throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
         }
 
-      } else {
-
-        await prepareRepository(repositoryUrl, reference, context.actor);
-
-        await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
       }
 
       debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
