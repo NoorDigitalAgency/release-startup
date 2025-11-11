@@ -78,13 +78,11 @@ async function run(): Promise<void> {
 
     const url = new URL(context.payload.repository!.clone_url!);
 
-    url.username = context.actor;
-
     url.password = token;
 
     debug(`URL: ${stringify(url)}`);
 
-    const repositoryUrl = url.toString();
+    const repositoryUrl = url.href;
 
     debug(`Repository URL: '${repositoryUrl}'`);
 
