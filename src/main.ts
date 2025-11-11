@@ -183,13 +183,11 @@ async function run(): Promise<void> {
 
     saveState('delete', false);
 
-    const branch = stage === 'alpha' ? 'develop' : target;
-
-    await prepareRepository(repositoryUrl, branch, context.actor);
-
     let gitReference;
 
     if (stage === 'alpha') {
+
+      await prepareRepository(repositoryUrl, 'develop', context.actor);
 
       await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
 
@@ -348,6 +346,8 @@ async function run(): Promise<void> {
         }
 
       } else {
+
+        await prepareRepository(repositoryUrl, reference, context.actor);
 
         await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
       }
