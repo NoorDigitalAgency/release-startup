@@ -52,10 +52,6 @@ async function run(): Promise<void> {
 
     info(`Hotfix is: ${hotfix}`);
 
-    const hotfixTargetStage = getInput('hotfix_target_stage');
-
-    info(`Hotfix target stage is: ${hotfixTargetStage}`);
-
     const exports = getBooleanInput('exports');
 
     info(`Exports is: ${exports}`);
@@ -93,12 +89,12 @@ async function run(): Promise<void> {
 
     const hotfixBranches = ['beta', 'production'];
 
-    if (hotfix && !hotfixBranches.includes(hotfixTargetStage)) {
+    if (hotfix && !hotfixBranches.includes(stage)) {
 
-      throw new Error(`A hotfix can only be released on 'beta' or 'production' but '${hotfixTargetStage}' is specified as the target stage.`);
+      throw new Error(`A hotfix can only be released on 'beta' or 'production' but '${stage}' is specified as the target stage.`);
     }
 
-    const target = hotfix ? hotfixTargetStage === 'beta' ? 'release' : 'main' : stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
+    const target = hotfix ? stage === 'beta' ? 'release' : 'main' : stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
 
     info(`Target of release: '${target}'`);
 
