@@ -52,6 +52,10 @@ async function run(): Promise<void> {
 
     info(`Hotfix is: ${hotfix}`);
 
+    const hotfixTargetStage = getInput('hotfix_target_stage');
+
+    info(`Hotfix target stage is: ${hotfixTargetStage}`);
+
     const exports = getBooleanInput('exports');
 
     info(`Exports is: ${exports}`);
@@ -74,30 +78,36 @@ async function run(): Promise<void> {
 
     const repositoryUrl = context.payload.repository!.clone_url!.replace(/(https:\/\/)(.+)/g, (_: string, $1: string, $2: string) => `${$1}${context.actor}:${token}@${$2}`);
 
+    debug(`Repository URL: '${repositoryUrl}'`);
+
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
       throw new Error(`Invalid stage name '${stage}'.`);
     }
 
-    const hotfixBranches = ['release', 'main'];
+    const hotfixBranches = ['beta', 'production'];
 
-    if (hotfix && !hotfixBranches.includes(reference)) {
+    if (hotfix && !hotfixBranches.includes(hotfixTargetStage)) {
 
-      throw new Error(`A hotfix can only be released on 'release' or 'main' but '${reference}' is specified as the reference.`);
+      throw new Error(`A hotfix can only be released on 'beta' or 'production' but '${hotfixTargetStage}' is specified as the target stage.`);
     }
 
-    const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
+    const target = hotfix ? hotfixTargetStage === 'beta' ? 'release' : 'main' : stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
 
     info(`Target of release: '${target}'`);
 
     if (hotfix && reference !== '') {
 
+      debug(`Preparing repository for hotfix branch '${reference}'.`);
+
       await prepareRepository(repositoryUrl, reference, context.actor);
+
+      debug(`Asserting hotfix branch '${reference}' is based on '${target}'.`);
 
       await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
     }
 
-    const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
+    const source = hotfix ? reference : stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
 
     info(`Source of release: '${source}'`);
 
