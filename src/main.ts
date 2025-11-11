@@ -76,7 +76,7 @@ async function run(): Promise<void> {
 
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
-    const repositoryUrl = context.payload.repository!.clone_url!.replace(/(https:\/\/)(.+)/g, (_: string, _1: string, _2: string) => `${_1}${context.actor}:${token}@${_2}`);
+    const repositoryUrl = `https://${context.actor}:${token}@${context.payload.repository!.clone_url!.split('https://').pop()}`;
 
     debug(`Repository URL: '${repositoryUrl}'`);
 
