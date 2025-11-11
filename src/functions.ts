@@ -151,7 +151,7 @@ async function forkDist(base: string, headLocalRef: string): Promise<number> {
 /**
  * Helper: given a PR head commit fetched to <localHeadRef>, decide which of the
  * candidate bases it is "closest to" by fork-point distance. Ties prefer the
- * later item in preferenceOrder (because of <=), which lets you bias decisions.
+ * earlier item in preferenceOrder, which lets you bias decisions.
  */
 function chooseBestBase(distances: { [base: string]: number }, preferenceOrder: string[]): string {
   let bestBase = preferenceOrder[0];
@@ -161,7 +161,7 @@ function chooseBestBase(distances: { [base: string]: number }, preferenceOrder: 
     const d = distances[b];
     if (
       (bestDist === Number.POSITIVE_INFINITY && d !== Number.POSITIVE_INFINITY) ||
-      (d !== Number.POSITIVE_INFINITY && bestDist !== Number.POSITIVE_INFINITY && d <= bestDist)
+      (d !== Number.POSITIVE_INFINITY && bestDist !== Number.POSITIVE_INFINITY && d < bestDist)
     ) {
       bestBase = b;
       bestDist = d;
@@ -211,8 +211,8 @@ export async function assertOpenPRs(
     const dRelease = await forkDist("release", localHead);
 
     const distances = { develop: dDevelop, main: dMain, release: dRelease } as Record<string, number>;
-    // Preference order: develop, then main, then release. Ties choose the later item (<=),
-    // which means if develop ties with main/release, we err on the side of hotfix detection.
+    // Preference order: develop, then main, then release. Ties favor develop so we don't flag
+    // PRs that are equally close to multiple bases.
     const best = chooseBestBase(distances, ["develop", "main", "release"]);
 
     if (best !== "develop" && distances[best] !== Number.POSITIVE_INFINITY) {
