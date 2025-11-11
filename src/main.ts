@@ -102,7 +102,7 @@ async function run(): Promise<void> {
 
       debug(`Preparing repository for hotfix branch '${reference}'.`);
 
-      await prepareRepository(url, reference, context.actor);
+      await prepareRepository(url, reference);
 
       debug(`Asserting hotfix branch '${reference}' is based on '${target}'.`);
 
@@ -204,7 +204,7 @@ async function run(): Promise<void> {
 
     if (stage === 'alpha') {
 
-      await prepareRepository(url, 'develop', context.actor);
+      await prepareRepository(url, 'develop');
 
       await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
 
@@ -291,7 +291,7 @@ async function run(): Promise<void> {
 
         if ((stage === 'beta' || stage === 'production')) {
 
-          await prepareRepository(url, branchName, context.actor);
+          await prepareRepository(url, branchName);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 

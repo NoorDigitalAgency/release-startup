@@ -278,8 +278,8 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
   }
 }
 
-export async function prepareRepository(gitRemoteUrl: URL, branch: string, username: string): Promise<void> {
-  const email = `${username}@github.com`;
+export async function prepareRepository(gitRemoteUrl: URL, branch: string): Promise<void> {
+  const email = `${gitRemoteUrl.username}@users.noreply.github.com`;
   try {
     await shell('git', ['config', '--global', 'user.email'], { shouldRejectOnError: true });
   } catch (error) {
@@ -289,8 +289,8 @@ export async function prepareRepository(gitRemoteUrl: URL, branch: string, usern
   try {
     await shell('git', ['config', '--global', 'user.name'], { shouldRejectOnError: true });
   } catch (error) {
-    info(`Git user.name not set. Setting to ${username}.`);
-    await shell('git', ['config', '--global', 'user.name', username], { shouldRejectOnError: true });
+    info(`Git user.name not set. Setting to ${gitRemoteUrl.username}.`);
+    await shell('git', ['config', '--global', 'user.name', gitRemoteUrl.username], { shouldRejectOnError: true });
   }
   try {
     await shell('git', ['status'], { shouldRejectOnError: true });
