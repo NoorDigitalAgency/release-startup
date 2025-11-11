@@ -1,6 +1,6 @@
 import {exec, type ExecException} from "node:child_process";
 import type { GitHub } from '@actions/github/lib/utils';
-import {summary} from "@actions/core";
+import {summary, info} from "@actions/core";
 
 export function wait(milliseconds: number) {
 
@@ -228,11 +228,11 @@ export async function assertOpenPRs(
  */
 export async function assertCorrectHotfixBranch(branch: string, stageBranch: "main" | "release"): Promise<void> {
   // Ensure up-to-date refs
-  await shell("git", ["fetch", "origin", "--prune", "--quiet"], { shouldRejectOnError: true });
+  await shell("git", ["fetch", "origin", "--prune"], { shouldRejectOnError: true });
 
   // Make sure we have the branch locally
   const localRef = `refs/remotes/origin/${branch}`;
-  await shell("git", ["fetch", "origin", `+${branch}:${localRef}`, "--quiet"], { shouldRejectOnError: true });
+  await shell("git", ["fetch", "origin", `+${branch}:${localRef}`], { shouldRejectOnError: true });
 
   // Compute distances to the three canonical branches
   const dDevelop = await forkDist("develop", localRef);
@@ -276,4 +276,30 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 
     throw new Error(`Hotfix branch "${branch}" is not uniquely based on "${stageBranch}".`);
   }
+}
+
+export async function prepareRepository(gitRemoteUrl: string, branch: string, username: string): Promise<void> {
+  const email = `${username}@github.com`.toLocaleLowerCase();
+  try {
+    await shell('git', ['config', '--global', 'user.email'], { shouldRejectOnError: true });
+  } catch (error) {
+    info(`Git user.email not set. Setting to ${email}.`);
+    await shell('git', ['config', '--global', 'user.email', email], { shouldRejectOnError: true });
+  }
+  try {
+    await shell('git', ['config', '--global', 'user.name'], { shouldRejectOnError: true });
+  } catch (error) {
+    info(`Git user.name not set. Setting to ${username}.`);
+    await shell('git', ['config', '--global', 'user.name', username], { shouldRejectOnError: true });
+  }
+  try {
+    await shell('git', ['status'], { shouldRejectOnError: true });
+  } catch (error) {
+    info(`Git repository not found. Cloning repository from ${gitRemoteUrl}.`);
+    await shell('git', ['clone', '--branch', branch, gitRemoteUrl, '.'], { shouldRejectOnError: true });
+    await shell('git', ['remote', 'set-url', 'origin', gitRemoteUrl], { shouldRejectOnError: true });
+    await shell('git', ['fetch', 'origin', '--prune'], { shouldRejectOnError: true });
+  }
+  await shell('git', ['fetch', 'origin', branch], { shouldRejectOnError: true });
+  await shell('git', ['checkout', '-B', branch, `origin/${branch}`], { shouldRejectOnError: true });
 }

@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, shell, assertOpenPRs, assertCorrectHotfixBranch } from './functions';
+import { wait, versioning, compareVersions, shell, assertOpenPRs, assertCorrectHotfixBranch, prepareRepository } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -72,38 +72,7 @@ async function run(): Promise<void> {
 
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
-    const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
-    const repositoryUrl = new URL(context.payload.repository!.html_url!);
-    const actor = context.actor;
-    const gitRemoteUrl = `${repositoryUrl.protocol}//${actor}:${token}@${repositoryUrl.hostname}${repositoryUrl.pathname}.git`;
-
-    let gitConfigured = false;
-    async function ensureGitIdentity(): Promise<void> {
-      if (gitConfigured) {
-        return;
-      }
-      await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
-      await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
-      gitConfigured = true;
-    }
-
-    async function prepareRepository(branch: string): Promise<void> {
-      await ensureGitIdentity();
-      const repoExists = existsSync(join(workspace, '.git'));
-
-      if (!repoExists) {
-        debug(`Cloning repository into workspace on branch '${branch}'.`);
-        await exec('git', ['clone', '--branch', branch, gitRemoteUrl, '.']);
-      } else {
-        debug(`Repository already present. Updating branch '${branch}'.`);
-        await exec('git', ['remote', 'set-url', 'origin', gitRemoteUrl]);
-        await exec('git', ['fetch', 'origin', '--prune']);
-        await exec('git', ['fetch', 'origin', branch]);
-        await exec('git', ['checkout', '-B', branch, `origin/${branch}`]);
-      }
-
-      await exec('git', ['status']);
-    }
+    const repositoryUrl = context.payload.repository!.clone_url!.replace(/(https:\/\/)(.+)/g, (_: string, $1: string, $2: string) => `${$1}${token}@${$2}`);
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
@@ -214,9 +183,9 @@ async function run(): Promise<void> {
 
     saveState('delete', false);
 
-    const defaultWorkingBranch = stage === 'alpha' ? 'develop' : target;
+    const branch = stage === 'alpha' ? 'develop' : target;
 
-    await prepareRepository(defaultWorkingBranch);
+    await prepareRepository(repositoryUrl, branch, context.actor);
 
     let gitReference;
 
@@ -307,7 +276,7 @@ async function run(): Promise<void> {
 
         if ((stage === 'beta' || stage === 'production')) {
 
-          await prepareRepository(branchName);
+          await prepareRepository(repositoryUrl, branchName, context.actor);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 
