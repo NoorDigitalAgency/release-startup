@@ -1,6 +1,6 @@
 import {exec, type ExecException} from "node:child_process";
 import type { GitHub } from '@actions/github/lib/utils';
-import {summary, info} from "@actions/core";
+import {summary, info, debug} from "@actions/core";
 
 export function wait(milliseconds: number) {
 
@@ -258,7 +258,15 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
     d <= expectedDist
   );
 
+  debug(`Detected: ${detected}`);
+
+  debug(`Expected Distance: ${expectedDist}`);
+
+  debug(`Tie or Better Other: ${tieOrBetterOther}`);
+
   const ok = detected === stageBranch && !tieOrBetterOther;
+
+  debug(`OK: ${ok}`);
 
   if (!ok) {
     const rule = `The hotfix branch intended for the ${stageBranch} stage must be branched from \`${stageBranch}\`.`;

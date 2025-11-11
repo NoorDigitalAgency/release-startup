@@ -104,9 +104,13 @@ async function run(): Promise<void> {
 
       await prepareRepository(url, reference);
 
+      debug(`Repository prepared for hotfix branch '${reference}'.`);
+
       debug(`Asserting hotfix branch '${reference}' is based on '${target}'.`);
 
       await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
+
+      debug(`Hotfix branch '${reference}' is based on '${target}'.`);
     }
 
     const source = hotfix ? reference : stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
