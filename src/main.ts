@@ -76,13 +76,9 @@ async function run(): Promise<void> {
 
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
-    const octokit = getOctokit(token);
-
     const url = new URL(context.payload.repository!.clone_url!);
 
     url.password = token;
-
-    url.username = (await octokit.rest.users.getAuthenticated()).data.login;
 
     debug(`URL: ${stringify(url)}`);
 
@@ -134,6 +130,8 @@ async function run(): Promise<void> {
     const detached = !hotfix && reference !== '' && reference !== source;
 
     debug(`Detached: ${detached}`);
+
+    const octokit = getOctokit(token);
 
     startGroup('GitHub Context');
 
