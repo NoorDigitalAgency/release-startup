@@ -127,16 +127,23 @@ export function shell(command: string, args: string[] = [], options: { shouldRej
  * Smaller is "closer". Infinity means we could not find a usable fork point.
  */
 async function forkDist(base: string, headLocalRef: string): Promise<number> {
+  debug(`Computing fork distance between 'origin/${base}' and '${headLocalRef}'.`);
   const fpTry = await shell("git", ["merge-base", "--fork-point", `origin/${base}`, headLocalRef], { shouldRejectOnError: true });
+  debug(`Fork distance try: ${fpTry.stdout.trim()}`);
   let fp = fpTry.stdout.trim();
+  debug(`Fork point: ${fp}`);
   if (!fp) {
     const fpFallback = await shell("git", ["merge-base", `origin/${base}`, headLocalRef], { shouldRejectOnError: true });
+    debug(`Fork distance fallback: ${fpFallback.stdout.trim()}`);
     fp = fpFallback.stdout.trim();
+    debug(`Fork point (fallback): ${fp}`);
   }
   if (!fp) return Number.POSITIVE_INFINITY;
 
+  debug(`Counting commits since fork point: ${fp}..${headLocalRef}`);
   const cnt = await shell("git", ["rev-list", "--count", `${fp}..${headLocalRef}`], { shouldRejectOnError: true });
   const n = parseInt(cnt.stdout.trim(), 10);
+  debug(`Commit count: ${n}`);
   return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
 }
 
