@@ -279,7 +279,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 }
 
 export async function prepareRepository(gitRemoteUrl: string, branch: string, username: string): Promise<void> {
-  const email = `${username}@github.com`.toLocaleLowerCase();
+  const email = `${username}@github.com`;
   try {
     await shell('git', ['config', '--global', 'user.email'], { shouldRejectOnError: true });
   } catch (error) {
