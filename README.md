@@ -15,7 +15,7 @@ Usage:
         with:
           stage: 'alpha' # What stage is the release targeting (alpha, beta and production)
           reference: '' # If the release's source is anything other than the previous stage's latest release
-          hotfix: false # If it is a hotfix release (stage must be production)
+          hotfix: false # If it is a hotfix release (stage must be beta or production)
           token: ${{ secrets.pat }} # Private access token with read and write access to the repository
           exports: true # If true, the outputs will be exported as environment variables
           artifact: true # If true, the outputs will be exported as an artifact

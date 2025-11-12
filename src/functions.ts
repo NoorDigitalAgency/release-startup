@@ -11,7 +11,43 @@ export function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-export function versioning(stage: string, reference: string, hotfix: boolean, previousVersion: string | undefined, lastProductionVersion: string | undefined) {
+export function versioning(
+  stage: string,
+  reference: string,
+  hotfix: boolean,
+  previousVersion: string | undefined,
+  lastProductionVersion: string | undefined,
+  latestStageVersion?: string | undefined
+) {
+
+  if (hotfix && stage === 'beta') {
+
+    const betaVersion = latestStageVersion;
+
+    if (!betaVersion || !/^v20\d{2}\.\d{1,3}(?:\.\d{1,3})?-beta\.\d{1,4}(?:\.\d{1,4})?$/.test(betaVersion)) {
+
+      throw new Error(
+        betaVersion ?
+          `The last 'beta' release '${betaVersion}' does not match the expected format for hotfixing.` :
+          `No previous 'beta' release was found to be used as the base for the 'beta' hotfix.`
+      );
+    }
+
+    const match = betaVersion.match(/^v(20\d{2})\.(\d{1,3})(?:\.(\d{1,3}))?-beta\.(\d{1,4})(?:\.(\d{1,4}))?$/);
+
+    if (!match) {
+
+      throw new Error(`Unable to parse the previous 'beta' version '${betaVersion}' for hotfixing.`);
+    }
+
+    const [, betaYear, betaRevision, betaPatch, betaIteration, betaFix] = match;
+
+    const nextFix = +(betaFix ?? '0') + 1;
+
+    const patchSegment = betaPatch ? `.${betaPatch}` : '';
+
+    return `v${betaYear}.${betaRevision}${patchSegment}-beta.${betaIteration}.${nextFix}`;
+  }
 
   let version;
 
@@ -105,6 +141,20 @@ function simplifyVersion(version: string): number {
 export function compareVersions(a: string, b: string): number {
 
   return simplifyVersion(b) - simplifyVersion(a);
+}
+
+export function buildExtendedVersion(version: string): string {
+
+  const match = version.match(/^(v20\d{2}\.\d{1,3})(\.\d{1,3})?(.*)$/);
+
+  if (!match) {
+
+    return version;
+  }
+
+  const [, majorMinor, patch, suffix] = match;
+
+  return `${majorMinor}${patch ?? '.0'}${suffix}`;
 }
 
 export const UNMERGED_PR_FLAG_ARTIFACT = 'release-startup-unmerged-pr-flag';

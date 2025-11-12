@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, shell, assertOpenPRs, assertCorrectHotfixBranch, prepareRepository, BlockingHotfixPRError, ensureFreshWorkflowRun, uploadUnmergedPrFlagArtifact } from './functions';
+import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertOpenPRs, assertCorrectHotfixBranch, prepareRepository, BlockingHotfixPRError, ensureFreshWorkflowRun, uploadUnmergedPrFlagArtifact } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -154,9 +154,11 @@ async function run(): Promise<void> {
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
+    const releaseTagPattern = /^v20\d{2}\.\d{1,3}(?:\.\d{1,3})?(?:-alpha\.\d{1,4}|-beta\.\d{1,4}(?:\.\d{1,4})?)?$/;
+
     const tags = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
 
-        .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
+        .filter(tag => tag.startsWith('v20') && releaseTagPattern.test(tag))
 
         .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
 
@@ -180,11 +182,17 @@ async function run(): Promise<void> {
 
     debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
 
-    const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
+    const stageBaseVersion = stage === 'beta'
+
+      ? (hotfix ? previousVersion : lastAlphaVersion)
+
+      : previousVersion;
+
+    const version = versioning(stage, reference, hotfix, stageBaseVersion, lastProductionVersion, stage === 'beta' ? previousVersion : undefined);
 
     const plainVersion = version.substring(1);
 
-    const extendedVersion = hotfix ? version : version.replace(/^(v20\d+\.\d+)(-(?:alpha|beta)\.\d+|)$/img, "$1.0$2");
+    const extendedVersion = buildExtendedVersion(version);
 
     notice(`Release Version: ${version}`);
 

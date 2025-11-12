@@ -14,7 +14,7 @@ inputs:
     default: ''
   hotfix:
     required: false
-    description: Is a hotfix
+    description: Is a hotfix (beta or production only)
     default: 'false'
   hotfix_target_stage:
     required: false
