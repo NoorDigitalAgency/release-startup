@@ -161,6 +161,7 @@ export const UNMERGED_PR_FLAG_ARTIFACT = 'release-startup-unmerged-pr-flag';
 const UNMERGED_PR_FLAG_FILE = '.release-startup-unmerged-pr-flag';
 
 type StageBranch = "develop" | "release" | "main";
+type ReleaseStage = "alpha" | "beta";
 
 interface AssertOpenPROptions {
   baseBranch: StageBranch;
@@ -176,6 +177,26 @@ const DEFAULT_ASSERT_OPEN_PR_OPTIONS: AssertOpenPROptions = {
   errorMessage: (count: number) => `Detected ${count} open hotfix PR(s) into develop based on main or release.`,
 };
 
+const STAGE_OPEN_PR_CHECKS: Record<ReleaseStage, AssertOpenPROptions[]> = {
+  alpha: [
+    { ...DEFAULT_ASSERT_OPEN_PR_OPTIONS },
+    {
+      baseBranch: "release",
+      forbiddenBranches: ["main"],
+      summaryTitle: "Open main->release PRs Detected:",
+      errorMessage: (count: number) => `Detected ${count} open PR(s) into release based on main. Merge them before starting an alpha release.`,
+    },
+  ],
+  beta: [
+    {
+      baseBranch: "release",
+      forbiddenBranches: ["main"],
+      summaryTitle: "Open main->release PRs Detected:",
+      errorMessage: (count: number) => `Detected ${count} open PR(s) into release based on main. Merge them before starting a beta release.`,
+    },
+  ],
+};
+
 export async function ensureFreshWorkflowRun(
   octokit: InstanceType<typeof GitHub>,
   owner: string,
@@ -183,6 +204,8 @@ export async function ensureFreshWorkflowRun(
   runId: number,
   stage?: string
 ): Promise<void> {
+  const normalizedStage = stage?.trim().toLowerCase() as ReleaseStage | undefined;
+
   const artifacts = await octokit.paginate(
     octokit.rest.actions.listWorkflowRunArtifacts,
     { owner, repo, run_id: runId, per_page: 100 },
@@ -210,9 +233,43 @@ export async function ensureFreshWorkflowRun(
   }
 
   if (hasFlag) {
-    const normalizedStage = stage?.trim().toLowerCase();
     const stageLabel = normalizedStage ? `${normalizedStage[0].toUpperCase()}${normalizedStage.slice(1)}` : "Alpha";
     throw new Error(`⚠️ Do not re-run this ${stageLabel.toLowerCase()} release workflow run. ✅️ When the PRs are merged, start a brand-new ${stageLabel} Release to prevent un-syncing the branches.`);
+  }
+
+  if (normalizedStage && STAGE_OPEN_PR_CHECKS[normalizedStage]) {
+    await enforceStageOpenPrChecks(octokit, owner, repo, normalizedStage);
+  }
+}
+
+async function enforceStageOpenPrChecks(
+  octokit: InstanceType<typeof GitHub>,
+  owner: string,
+  repo: string,
+  stage: ReleaseStage
+): Promise<void> {
+  for (const checkOptions of STAGE_OPEN_PR_CHECKS[stage]) {
+    try {
+      await assertOpenPRs(octokit, owner, repo, false, checkOptions);
+    } catch (error) {
+      if (error instanceof BlockingHotfixPRError) {
+        await handleBlockingHotfixPre(stage);
+      }
+      throw error;
+    }
+  }
+}
+
+async function handleBlockingHotfixPre(stage: ReleaseStage): Promise<void> {
+  try {
+    await uploadUnmergedPrFlagArtifact();
+  } catch (artifactError) {
+    const stageLabel = stage === "alpha" ? "Alpha" : "Beta";
+    const issueLabel = stage === "alpha" ? "hotfix PR(s)" : "blocking PR(s)";
+    warning(`⚠️ DO NOT RE-RUN THIS FAILED STEPS, otherwise, the release branch will fall behind. ⚠️ ✅️ RUN A FRESH RUN of the ${stageLabel} Release workflow after merging the ${issueLabel}. ✅️`);
+    startGroup('Flag Artifact Upload Error');
+    debug(`${stringify(artifactError, { depth: 5 })}`);
+    endGroup();
   }
 }
 
