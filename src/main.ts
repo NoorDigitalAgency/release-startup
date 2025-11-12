@@ -276,7 +276,7 @@ async function run(): Promise<void> {
 
         if(checkIssues) {
 
-          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !(issue.labels?.nodes ?? []).some(label => label!.name.trim().toLowerCase() === 'approved'));
+          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !(issue.labels?.nodes ?? []).some(label => (label?.name ?? '').trim().toLowerCase() === 'approved'));
 
           if (issues.length > 0) {
 
