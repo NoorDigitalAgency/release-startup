@@ -394,8 +394,17 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
     return Boolean(branchTips[a] && branchTips[b] && branchTips[a] === branchTips[b]);
   };
 
-  const expectedDist = distances[stageBranch];
-  const competingBranches = Object.entries(distances)
+  const normalizedDistances = Object.fromEntries(
+    Object.entries(distances).map(([b, d]) => {
+      if (b !== stageBranch && shareTip(b as keyof typeof branchTips, stageBranch)) {
+        return [b, Number.POSITIVE_INFINITY];
+      }
+      return [b, d];
+    })
+  ) as typeof distances;
+
+  const expectedDist = normalizedDistances[stageBranch];
+  const competingBranches = Object.entries(normalizedDistances)
     .filter(([b, d]) =>
       b !== stageBranch &&
       d !== Number.POSITIVE_INFINITY &&
