@@ -124,7 +124,7 @@ async function run(): Promise<void> {
       throw new Error(`Cannot reference '${reference}' while releasing to '${stage}'.`);
     }
 
-    if (stage === 'beta' && reference !== '' && !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(reference)) {
+    if (!hotfix && stage === 'beta' && reference !== '' && !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(reference)) {
 
       throw new Error(`The reference '${reference}' is not a release version from the 'alpha' stage.`);
     }
