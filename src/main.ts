@@ -74,7 +74,10 @@ async function run(): Promise<void> {
 
     const octokit = getOctokit(token);
 
-    await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId);
+    if (!hotfix && (stage === 'alpha' || stage === 'beta')) {
+
+      await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId, stage);
+    }
 
     const url = new URL(context.payload.repository!.clone_url!);
 
@@ -224,15 +227,25 @@ async function run(): Promise<void> {
       await prepareRepository(url, 'develop');
 
       try {
+
         await assertOpenPRs(octokit, context.repo.owner, context.repo.repo);
+
       } catch (error) {
+
         if (error instanceof BlockingHotfixPRError) {
+
           try {
+
             await uploadUnmergedPrFlagArtifact();
+
           } catch (artifactError) {
-            warning('⚠️ DO NOT RE-RUN THIS FAILED STEPS, otherwise, the release branch will fall behind. ⚠️\n - ⚠️ RUN A FRESH RUN of the Alpha Release workflow after merging the hotfix PR(s). ⚠️');
+
+            warning('⚠️ DO NOT RE-RUN THIS FAILED STEPS, otherwise, the release branch will fall behind. ⚠️ ✅️ RUN A FRESH RUN of the Alpha Release workflow after merging the hotfix PR(s). ✅️');
+            
             startGroup('Flag Artifact Upload Error');
+            
             debug(`${stringify(artifactError, { depth: 5 })}`);
+            
             endGroup();
           }
         }
@@ -276,6 +289,46 @@ async function run(): Promise<void> {
       let zxScriptChanges = false;
 
       if (!hotfix) {
+
+        if (stage === 'beta') {
+
+          try {
+
+            await assertOpenPRs(octokit, context.repo.owner, context.repo.repo, false, {
+
+              baseBranch: 'release',
+
+              forbiddenBranches: ['main'],
+
+              summaryTitle: 'Open main->release PRs Detected:',
+
+              errorMessage: (count: number) => `Detected ${count} open PR(s) into release based on main. Merge them before starting a beta release.`,
+
+            });
+
+          } catch (error) {
+
+            if (error instanceof BlockingHotfixPRError) {
+
+              try {
+
+                await uploadUnmergedPrFlagArtifact();
+
+              } catch (artifactError) {
+
+                warning('⚠️ DO NOT RE-RUN THIS FAILED STEPS, otherwise, the release branch will fall behind. ⚠️ ✅️ RUN A FRESH RUN of the Beta Release workflow after merging the blocking PR(s). ✅️');
+                
+                startGroup('Flag Artifact Upload Error');
+                
+                debug(`${stringify(artifactError, { depth: 5 })}`);
+                
+                endGroup();
+              }
+            }
+            
+            throw error;
+          }
+        }
 
         if(checkIssues) {
 

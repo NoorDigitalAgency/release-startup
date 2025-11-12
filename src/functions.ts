@@ -160,11 +160,28 @@ export function buildExtendedVersion(version: string): string {
 export const UNMERGED_PR_FLAG_ARTIFACT = 'release-startup-unmerged-pr-flag';
 const UNMERGED_PR_FLAG_FILE = '.release-startup-unmerged-pr-flag';
 
+type StageBranch = "develop" | "release" | "main";
+
+interface AssertOpenPROptions {
+  baseBranch: StageBranch;
+  forbiddenBranches: StageBranch[];
+  summaryTitle: string;
+  errorMessage: (count: number) => string;
+}
+
+const DEFAULT_ASSERT_OPEN_PR_OPTIONS: AssertOpenPROptions = {
+  baseBranch: "develop",
+  forbiddenBranches: ["main", "release"],
+  summaryTitle: "Open Hotfix PRs Detected:",
+  errorMessage: (count: number) => `Detected ${count} open hotfix PR(s) into develop based on main or release.`,
+};
+
 export async function ensureFreshWorkflowRun(
   octokit: InstanceType<typeof GitHub>,
   owner: string,
   repo: string,
-  runId: number
+  runId: number,
+  stage?: string
 ): Promise<void> {
   const artifacts = await octokit.paginate(
     octokit.rest.actions.listWorkflowRunArtifacts,
@@ -193,7 +210,9 @@ export async function ensureFreshWorkflowRun(
   }
 
   if (hasFlag) {
-    throw new Error("⚠️ Do not re-run this workflow run. ✅️ When the PRs are merged, start a brand-new Alphab Release, to prevent release from falling behind.");
+    const normalizedStage = stage?.trim().toLowerCase();
+    const stageLabel = normalizedStage ? `${normalizedStage[0].toUpperCase()}${normalizedStage.slice(1)}` : "Alpha";
+    throw new Error(`⚠️ Do not re-run this ${stageLabel.toLowerCase()} release workflow run. ✅️ When the PRs are merged, start a brand-new ${stageLabel} Release to prevent un-syncing the branches.`);
   }
 }
 
@@ -261,7 +280,7 @@ async function forkDist(base: string, headLocalRef: string): Promise<number> {
  * candidate bases it is "closest to" by fork-point distance. Ties prefer the
  * earlier item in preferenceOrder, which lets you bias decisions.
  */
-function chooseBestBase(distances: { [base: string]: number }, preferenceOrder: string[]): string {
+function chooseBestBase<T extends string>(distances: Record<T, number>, preferenceOrder: T[]): T {
   let bestBase = preferenceOrder[0];
   let bestDist = distances[bestBase];
   for (let i = 1; i < preferenceOrder.length; i++) {
@@ -294,18 +313,27 @@ async function forkPoint(base: string, headLocalRef: string): Promise<string | n
 }
 
 /**
- * 1) assertOpenPRs
- * Scans OPEN PRs targeting develop and flags any whose head branch appears based on main or release.
- * If any are found, it writes a summary:
- *   "Open Hotfix PRs Detected:"
- * followed by a list of PR titles hyperlinked to their URLs, then throws an Error.
+ * Scans OPEN PRs targeting a branch and flags any whose head branch appears to be based on disallowed branches.
+ * On failure, it writes a summary headed by `summaryTitle` listing the offending PRs, then throws an Error.
  */
 export async function assertOpenPRs(
   octokit: InstanceType<typeof GitHub>,
   owner: string,
   repo: string,
-  includeDrafts = false
+  includeDrafts = false,
+  options: Partial<AssertOpenPROptions> = {}
 ): Promise<void> {
+  const { baseBranch, forbiddenBranches, summaryTitle, errorMessage } = {
+    ...DEFAULT_ASSERT_OPEN_PR_OPTIONS,
+    ...options,
+    forbiddenBranches: options.forbiddenBranches ?? DEFAULT_ASSERT_OPEN_PR_OPTIONS.forbiddenBranches,
+  };
+
+  const normalizedForbidden = Array.from(new Set(forbiddenBranches.filter(branch => branch !== baseBranch)));
+  if (normalizedForbidden.length === 0) {
+    return;
+  }
+
   // Ensure up-to-date refs
   await shell("git", ["fetch", "origin", "--prune", "--quiet"], { shouldRejectOnError: true });
 
@@ -313,7 +341,7 @@ export async function assertOpenPRs(
     owner,
     repo,
     state: "open",
-    base: "develop",
+    base: baseBranch,
     per_page: 100,
   });
 
@@ -324,21 +352,27 @@ export async function assertOpenPRs(
 
   const offenders: { title: string; url: string }[] = [];
 
+  const branchesToMeasure = Array.from(new Set<StageBranch>([baseBranch, ...normalizedForbidden]));
+
   for (const pr of candidates) {
     const prNumber = pr.number;
     const localHead = `refs/remotes/origin/pr-${prNumber}`;
     await shell("git", ["fetch", "origin", `+pull/${prNumber}/head:${localHead}`, "--quiet"], { shouldRejectOnError: true });
 
-    const dDevelop = await forkDist("develop", localHead);
-    const dMain = await forkDist("main", localHead);
-    const dRelease = await forkDist("release", localHead);
+    const distances: Record<StageBranch, number> = {
+      develop: Number.POSITIVE_INFINITY,
+      main: Number.POSITIVE_INFINITY,
+      release: Number.POSITIVE_INFINITY,
+    };
 
-    const distances = { develop: dDevelop, main: dMain, release: dRelease } as Record<string, number>;
-    // Preference order: develop, then main, then release. Ties favor develop so we don't flag
-    // PRs that are equally close to multiple bases.
-    const best = chooseBestBase(distances, ["develop", "main", "release"]);
+    for (const branch of branchesToMeasure) {
+      distances[branch] = await forkDist(branch, localHead);
+    }
 
-    if (best !== "develop" && distances[best] !== Number.POSITIVE_INFINITY) {
+    const preference: StageBranch[] = [baseBranch, ...normalizedForbidden];
+    const best = chooseBestBase(distances, preference);
+
+    if (best !== baseBranch && normalizedForbidden.includes(best) && distances[best] !== Number.POSITIVE_INFINITY) {
       offenders.push({ title: pr.title ?? "(no title)", url: pr.html_url });
     }
   }
@@ -346,11 +380,11 @@ export async function assertOpenPRs(
   if (offenders.length > 0) {
     const list = offenders.map(o => `- [${o.title}](${o.url})`).join("\n");
     await summary
-      .addRaw("Open Hotfix PRs Detected:", true)
+      .addRaw(summaryTitle, true)
       .addRaw(list, true)
       .write();
 
-    throw new BlockingHotfixPRError(`Detected ${offenders.length} open hotfix PR(s) into develop based on main or release.`);
+    throw new BlockingHotfixPRError(errorMessage(offenders.length));
   }
 }
 
@@ -380,14 +414,14 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 
   debug(`Distances: ${stringify({ develop: dDevelop, main: dMain, release: dRelease })}`);
 
-  const distances = { develop: dDevelop, main: dMain, release: dRelease };
+  const distances: Record<StageBranch, number> = { develop: dDevelop, main: dMain, release: dRelease };
 
   debug(`Distances: ${stringify(distances)}`);
 
   // We require the stageBranch to be strictly closest. Ties are failure.
   // Preference: put the expected stage FIRST so <= will prefer a competing base later in the list,
   // which causes the assertion to FAIL on ties (conservative).
-  const preference = stageBranch === "main"
+  const preference: StageBranch[] = stageBranch === "main"
     ? ["main", "release", "develop"]
     : ["release", "main", "develop"];
 
@@ -397,7 +431,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 
   debug(`Detected: ${detected}`);
 
-  const branchTips: Record<"develop" | "main" | "release", string | null> = {
+  const branchTips: Record<StageBranch, string | null> = {
     develop: null,
     main: null,
     release: null
@@ -411,7 +445,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
     }
   }
 
-  const forkPoints: Record<"develop" | "main" | "release", string | null> = {
+  const forkPoints: Record<StageBranch, string | null> = {
     develop: await forkPoint("develop", localRef),
     main: await forkPoint("main", localRef),
     release: await forkPoint("release", localRef)
