@@ -16,10 +16,6 @@ inputs:
     required: false
     description: Is a hotfix (beta or production only)
     default: 'false'
-  hotfix_target_stage:
-    required: false
-    description: Target stage for hotfix
-    default: 'production'
   exports:
     required: false
     description: Export outputs as environment variables
