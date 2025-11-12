@@ -172,7 +172,7 @@ export async function ensureFreshWorkflowRun(
     response => response.data.artifacts
   );
 
-  const hasFlag = artifacts.some(artifact => artifact.name === UNMERGED_PR_FLAG_ARTIFACT);
+  const hasFlag = artifacts.some(artifact => (artifact?.name ?? '') === UNMERGED_PR_FLAG_ARTIFACT);
 
   if (hasFlag) {
     const warningMessage = "⚠️ This workflow run previously failed because of unmerged PRs. Please start a brand-new workflow run instead of re-running this one.";
