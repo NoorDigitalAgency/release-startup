@@ -193,9 +193,7 @@ export async function ensureFreshWorkflowRun(
   }
 
   if (hasFlag) {
-    const warningMessage = "⚠️ This workflow run previously failed because of unmerged PRs. Please start a brand-new workflow run instead of re-running this one.";
-    warning(warningMessage);
-    throw new Error("Detected an unmerged-PR flag artifact from a prior attempt. This workflow run cannot be re-run; trigger a fresh run to continue.");
+    throw new Error("⚠️ This workflow run previously failed because of unmerged PRs. Please merge the PRs and start a brand-new workflow run instead of re-running this one.");
   }
 }
 
