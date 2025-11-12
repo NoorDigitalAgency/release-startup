@@ -172,7 +172,25 @@ export async function ensureFreshWorkflowRun(
     response => response.data.artifacts
   );
 
-  const hasFlag = artifacts.some(artifact => (artifact?.name ?? '') === UNMERGED_PR_FLAG_ARTIFACT);
+  let hasFlag = artifacts.some(artifact => (artifact?.name ?? '') === UNMERGED_PR_FLAG_ARTIFACT);
+
+  if (!hasFlag) {
+    debug(`No flag artifact found on current attempt for run ${runId}. Checking repository artifacts for prior attempts.`);
+    for await (const response of octokit.paginate.iterator(
+      octokit.rest.actions.listArtifactsForRepo,
+      { owner, repo, per_page: 100 }
+    )) {
+      const repoArtifacts = response.data ?? [];
+      hasFlag = repoArtifacts.some(artifact =>
+        (artifact?.name ?? '') === UNMERGED_PR_FLAG_ARTIFACT &&
+        artifact.workflow_run?.id === runId
+      );
+      if (hasFlag) {
+        debug(`Flag artifact detected in repository artifacts for run ${runId}.`);
+        break;
+      }
+    }
+  }
 
   if (hasFlag) {
     const warningMessage = "⚠️ This workflow run previously failed because of unmerged PRs. Please start a brand-new workflow run instead of re-running this one.";
