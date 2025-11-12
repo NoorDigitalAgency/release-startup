@@ -229,17 +229,7 @@ export function shell(command: string, args: string[] = [], options: { shouldRej
  * Smaller is "closer". Infinity means we could not find a usable fork point.
  */
 async function forkDist(base: string, headLocalRef: string): Promise<number> {
-  debug(`Computing fork distance between 'origin/${base}' and '${headLocalRef}'.`);
-  const fpTry = await shell("git", ["merge-base", "--fork-point", `origin/${base}`, headLocalRef]);
-  debug(`Fork distance try: ${fpTry.stdout.trim()}`);
-  let fp = fpTry.stdout.trim();
-  debug(`Fork point: ${fp}`);
-  if (!fp) {
-    const fpFallback = await shell("git", ["merge-base", `origin/${base}`, headLocalRef]);
-    debug(`Fork distance fallback: ${fpFallback.stdout.trim()}`);
-    fp = fpFallback.stdout.trim();
-    debug(`Fork point (fallback): ${fp}`);
-  }
+  const fp = await forkPoint(base, headLocalRef);
   if (!fp) return Number.POSITIVE_INFINITY;
 
   debug(`Counting commits since fork point: ${fp}..${headLocalRef}`);
@@ -270,6 +260,21 @@ function chooseBestBase(distances: { [base: string]: number }, preferenceOrder: 
     }
   }
   return bestBase;
+}
+
+async function forkPoint(base: string, headLocalRef: string): Promise<string | null> {
+  debug(`Computing fork distance between 'origin/${base}' and '${headLocalRef}'.`);
+  const fpTry = await shell("git", ["merge-base", "--fork-point", `origin/${base}`, headLocalRef]);
+  debug(`Fork distance try: ${fpTry.stdout.trim()}`);
+  let fp = fpTry.stdout.trim();
+  debug(`Fork point: ${fp}`);
+  if (!fp) {
+    const fpFallback = await shell("git", ["merge-base", `origin/${base}`, headLocalRef]);
+    debug(`Fork distance fallback: ${fpFallback.stdout.trim()}`);
+    fp = fpFallback.stdout.trim();
+    debug(`Fork point (fallback): ${fp}`);
+  }
+  return fp || null;
 }
 
 /**
@@ -390,6 +395,12 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
     }
   }
 
+  const forkPoints: Record<"develop" | "main" | "release", string | null> = {
+    develop: await forkPoint("develop", localRef),
+    main: await forkPoint("main", localRef),
+    release: await forkPoint("release", localRef)
+  };
+
   const shareTip = (a: keyof typeof branchTips, b: keyof typeof branchTips): boolean => {
     return Boolean(branchTips[a] && branchTips[b] && branchTips[a] === branchTips[b]);
   };
@@ -421,7 +432,13 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 
   debug(`Tie or Better Other: ${tieOrBetterOther}`);
 
-  const ok = detected === stageBranch && !tieOrBetterOther;
+  const stageForkMatchesHead = Boolean(
+    forkPoints[stageBranch] &&
+    branchTips[stageBranch] &&
+    forkPoints[stageBranch] === branchTips[stageBranch]
+  );
+
+  const ok = (detected === stageBranch && !tieOrBetterOther) || (detected === stageBranch && stageForkMatchesHead);
 
   debug(`OK: ${ok}`);
 
