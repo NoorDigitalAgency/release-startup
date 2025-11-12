@@ -402,9 +402,25 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
       `main=${dMain === Number.POSITIVE_INFINITY ? "∞" : dMain}, ` +
       `release=${dRelease === Number.POSITIVE_INFINITY ? "∞" : dRelease}.`;
 
+    const closerBranch = tieOrBetterOther && detected === stageBranch
+      ? Object.entries(distances)
+          .filter(([b]) => b !== stageBranch)
+          .reduce((best, current) => {
+            const [, bestDist] = best;
+            const [, currDist] = current;
+            if (currDist === Number.POSITIVE_INFINITY) {
+              return best;
+            }
+            if (bestDist === Number.POSITIVE_INFINITY || currDist < bestDist) {
+              return current;
+            }
+            return best;
+          })?.[0] ?? detected
+      : detected;
+
     await summary
       .addRaw(rule, true)
-      .addRaw(`Branch \`${branch}\` appears closer to \`${detected}\`.`, true)
+      .addRaw(`Branch \`${branch}\` appears closer to \`${closerBranch}\`.`, true)
       .addRaw(details, true)
       .write();
 
