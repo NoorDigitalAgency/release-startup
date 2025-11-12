@@ -397,7 +397,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
   if (!ok) {
     const rule = `The hotfix branch intended for the ${stageBranch} stage must be branched from \`${stageBranch}\`.`;
     const details =
-      `Distances (commits since fork point): ` +
+      `[^note]: Distances (commits since fork point): ` +
       `develop=${dDevelop === Number.POSITIVE_INFINITY ? "∞" : dDevelop}, ` +
       `main=${dMain === Number.POSITIVE_INFINITY ? "∞" : dMain}, ` +
       `release=${dRelease === Number.POSITIVE_INFINITY ? "∞" : dRelease}.`;
@@ -420,7 +420,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 
     await summary
       .addRaw(rule, true)
-      .addRaw(`Branch \`${branch}\` appears closer to \`${closerBranch}\`.`, true)
+      .addRaw(`Branch \`${branch}\` appears closer to \`${closerBranch}\`. [^note]`, true)
       .addRaw(details, true)
       .write();
 
