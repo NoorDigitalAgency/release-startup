@@ -154,15 +154,18 @@ async function run(): Promise<void> {
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
-    const releaseTagPattern = /^v20\d{2}\.\d{1,3}(?:\.\d{1,3})?(?:-alpha\.\d{1,4}|-beta\.\d{1,4}(?:\.\d{1,4})?)?$/;
+    const releaseTagPattern = /^v20\d{2}\.\d{1,3}(?:\.\d{1,3})?(?:-alpha\.\d{1,4}|-beta\.\d{1,4}(?:\.\d{1,4})*)?$/;
 
     const tags = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
-
         .filter(tag => tag.startsWith('v20') && releaseTagPattern.test(tag))
+        .map(tag => ({
+          tag,
+          branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
+        }))
+        .sort((a, b) => compareVersions(a.tag, b.tag));
 
-        .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
-
-    })).sort((a, b) => compareVersions(b.tag, a.tag));
+    const latestForBranch = (branch: 'develop' | 'release' | 'main'): string | undefined =>
+      tags.find(release => release.branch === branch)?.tag;
 
     startGroup('Releases');
 
@@ -170,15 +173,15 @@ async function run(): Promise<void> {
 
     endGroup();
 
-    const previousVersion = tags.filter(release => release.branch === target).map(release => release.tag).pop();
+    const previousVersion = latestForBranch(target as 'develop' | 'release' | 'main');
 
     info(`Previous version: '${previousVersion ?? ''}'`);
 
-    const lastAlphaVersion = stage === 'alpha' ? previousVersion : tags.filter(release => release.branch === 'develop').map(release => release.tag).pop();
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : latestForBranch('develop');
 
     debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
-    const lastProductionVersion = stage === 'production' ? previousVersion : tags.filter(release => release.branch === 'main').map(release => release.tag).pop();
+    const lastProductionVersion = stage === 'production' ? previousVersion : latestForBranch('main');
 
     debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
 
@@ -292,7 +295,7 @@ async function run(): Promise<void> {
           }
         }
 
-        const ref = detached ? reference : tags.filter(release => release.branch === source).map(release => release.tag).pop();
+        const ref = detached ? reference : latestForBranch(source as 'develop' | 'release' | 'main');
 
         if (typeof ref !== 'string') {
 
