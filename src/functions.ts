@@ -376,13 +376,35 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
 
   debug(`Detected: ${detected}`);
 
+  const branchTips: Record<"develop" | "main" | "release", string | null> = {
+    develop: null,
+    main: null,
+    release: null
+  };
+
+  for (const key of Object.keys(branchTips) as Array<keyof typeof branchTips>) {
+    try {
+      branchTips[key] = (await shell("git", ["rev-parse", `origin/${key}`], { shouldRejectOnError: true })).stdout.trim();
+    } catch {
+      branchTips[key] = null;
+    }
+  }
+
+  const shareTip = (a: keyof typeof branchTips, b: keyof typeof branchTips): boolean => {
+    return Boolean(branchTips[a] && branchTips[b] && branchTips[a] === branchTips[b]);
+  };
+
   const expectedDist = distances[stageBranch];
-  const tieOrBetterOther = Object.entries(distances).some(([b, d]) =>
-    b !== stageBranch &&
-    d !== Number.POSITIVE_INFINITY &&
-    expectedDist !== Number.POSITIVE_INFINITY &&
-    d <= expectedDist
-  );
+  const competingBranches = Object.entries(distances)
+    .filter(([b, d]) =>
+      b !== stageBranch &&
+      d !== Number.POSITIVE_INFINITY &&
+      expectedDist !== Number.POSITIVE_INFINITY &&
+      d <= expectedDist &&
+      !shareTip(b as keyof typeof branchTips, stageBranch)
+    );
+
+  const tieOrBetterOther = competingBranches.length > 0;
 
   debug(`Detected: ${detected}`);
 
@@ -403,19 +425,17 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
       `\`release\`=**${dRelease === Number.POSITIVE_INFINITY ? "∞" : dRelease}**.`;
 
     const closerBranch = tieOrBetterOther && detected === stageBranch
-      ? Object.entries(distances)
-          .filter(([b]) => b !== stageBranch)
-          .reduce((best, current) => {
-            const [, bestDist] = best;
-            const [, currDist] = current;
-            if (currDist === Number.POSITIVE_INFINITY) {
-              return best;
-            }
-            if (bestDist === Number.POSITIVE_INFINITY || currDist < bestDist) {
-              return current;
-            }
+      ? competingBranches.reduce((best, current) => {
+          const [, bestDist] = best;
+          const [, currDist] = current;
+          if (currDist === Number.POSITIVE_INFINITY) {
             return best;
-          })?.[0] ?? detected
+          }
+          if (bestDist === Number.POSITIVE_INFINITY || currDist < bestDist) {
+            return current;
+          }
+          return best;
+        })?.[0] ?? detected
       : detected;
 
     await summary
