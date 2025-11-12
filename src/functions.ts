@@ -193,7 +193,7 @@ export async function ensureFreshWorkflowRun(
   }
 
   if (hasFlag) {
-    throw new Error("⚠️ This workflow run previously failed because of unmerged PRs. ✅️ Please merge the PRs first and then start a brand-new workflow run instead of re-running this one, otherwise, the release branch will fall behind.");
+    throw new Error("⚠️ Do not re-run this workflow run. ✅️ When the PRs are merged, start a brand-new Alphab Release, to prevent release from falling behind.");
   }
 }
 
