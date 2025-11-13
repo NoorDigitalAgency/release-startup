@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertOpenPRs, assertCorrectHotfixBranch, prepareRepository, BlockingHotfixPRError, ensureFreshWorkflowRun, uploadUnmergedPrFlagArtifact } from './functions';
+import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertCorrectHotfixBranch, prepareRepository, ensureFreshWorkflowRun } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -82,7 +82,7 @@ async function run(): Promise<void> {
 
     debug(`URL: ${stringify(url)}`);
 
-    if (!hotfix && (stage === 'alpha' || stage === 'beta')) {
+    if (stage === 'alpha' || stage === 'beta') {
 
       await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId, stage, url);
     }
