@@ -4,7 +4,7 @@ import {summary, info, debug, warning, startGroup, endGroup} from "@actions/core
 import { inspect as stringify } from 'util';
 import { DefaultArtifactClient } from "@actions/artifact";
 import { rmRF } from "@actions/io";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
 
 export function wait(milliseconds: number) {
 
@@ -202,7 +202,8 @@ export async function ensureFreshWorkflowRun(
   owner: string,
   repo: string,
   runId: number,
-  stage?: string
+  stage?: string,
+  gitRemoteUrl?: URL
 ): Promise<void> {
   const normalizedStage = stage?.trim().toLowerCase() as ReleaseStage | undefined;
 
@@ -238,8 +239,20 @@ export async function ensureFreshWorkflowRun(
   }
 
   if (normalizedStage && STAGE_OPEN_PR_CHECKS[normalizedStage]) {
+    await ensureRepositoryForStageChecks(normalizedStage, gitRemoteUrl);
     await enforceStageOpenPrChecks(octokit, owner, repo, normalizedStage);
   }
+}
+
+async function ensureRepositoryForStageChecks(stage: ReleaseStage, gitRemoteUrl?: URL): Promise<void> {
+  if (existsSync(".git")) {
+    return;
+  }
+  if (!gitRemoteUrl) {
+    throw new Error("Unable to run stage safeguards: repository checkout is missing and no git URL was provided.");
+  }
+  const bootstrapBranch: StageBranch = stage === "beta" ? "release" : "develop";
+  await prepareRepository(gitRemoteUrl, bootstrapBranch);
 }
 
 async function enforceStageOpenPrChecks(

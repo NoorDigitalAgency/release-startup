@@ -74,11 +74,6 @@ async function run(): Promise<void> {
 
     const octokit = getOctokit(token);
 
-    if (!hotfix && (stage === 'alpha' || stage === 'beta')) {
-
-      await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId, stage);
-    }
-
     const url = new URL(context.payload.repository!.clone_url!);
 
     url.password = token;
@@ -86,6 +81,11 @@ async function run(): Promise<void> {
     url.username = (await octokit.rest.users.getAuthenticated()).data.login;
 
     debug(`URL: ${stringify(url)}`);
+
+    if (!hotfix && (stage === 'alpha' || stage === 'beta')) {
+
+      await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId, stage, url);
+    }
 
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
