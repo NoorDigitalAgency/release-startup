@@ -550,7 +550,7 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
   debug(`OK: ${ok}`);
 
   if (!ok) {
-    const rule = `The hotfix branch intended for the ${stageBranch} stage must be branched from \`${stageBranch}\`.`;
+    const rule = `The hotfix branch intended for the \`${stageBranch}\` stage must be branched from \`${stageBranch}\`.`;
     const details =
       `[^note]: Distances (commits since fork point): ` +
       `\`develop\`=**${dDevelop === Number.POSITIVE_INFINITY ? "∞" : dDevelop}** ` +
