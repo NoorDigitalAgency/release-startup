@@ -311,6 +311,52 @@ export class BlockingHotfixPRError extends Error {
   }
 }
 
+export async function assertValidGitReference(
+  octokit: InstanceType<typeof GitHub>,
+  owner: string,
+  repo: string,
+  reference: string
+): Promise<void> {
+  if (!reference) {
+    return;
+  }
+
+  const isSha = /^[0-9a-f]{40}$/i.test(reference);
+  const normalized = reference.replace(/^refs\//, "");
+  const refCandidates: string[] = [];
+
+  if (reference.startsWith("refs/")) {
+    refCandidates.push(normalized);
+  } else {
+    refCandidates.push(`heads/${reference}`);
+    refCandidates.push(`tags/${reference}`);
+  }
+
+  for (const ref of refCandidates) {
+    try {
+      await octokit.rest.git.getRef({ owner, repo, ref });
+      return;
+    } catch (error: any) {
+      if (!error || error.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  if (isSha) {
+    try {
+      await octokit.rest.git.getCommit({ owner, repo, commit_sha: reference });
+      return;
+    } catch (error: any) {
+      if (!error || error.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error(`Reference '${reference}' is not a valid git ref in ${owner}/${repo}.`);
+}
+
 export function shell(command: string, args: string[] = [], options: { shouldRejectOnError?: boolean } = { shouldRejectOnError: false }): Promise<{stdout: string, stderr: string, exitCode: number}> {
   return new Promise((resolve, reject) => {
     const fullCommand = `${command} ${args.join(' ')}`;

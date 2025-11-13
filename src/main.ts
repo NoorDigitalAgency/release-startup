@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertCorrectHotfixBranch, prepareRepository, ensureFreshWorkflowRun } from './functions';
+import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertCorrectHotfixBranch, prepareRepository, ensureFreshWorkflowRun, assertValidGitReference } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -43,6 +43,8 @@ async function run(): Promise<void> {
     const stage = getInput('stage', { required: true });
 
     info(`Stage is: '${stage}'`);
+
+    const octokit = getOctokit(token);
 
     const reference = getInput('reference');
 
@@ -72,7 +74,9 @@ async function run(): Promise<void> {
 
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
-    const octokit = getOctokit(token);
+    if (reference !== '') {
+      await assertValidGitReference(octokit, context.repo.owner, context.repo.repo, reference);
+    }
 
     const url = new URL(context.payload.repository!.clone_url!);
 
