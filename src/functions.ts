@@ -428,7 +428,7 @@ async function forkPoint(base: string, headLocalRef: string): Promise<string | n
   return fp || null;
 }
 
-async function countAheadBehind(stageBranch: StageBranch, headLocalRef: string): Promise<{ stageAhead: number; branchAhead: number }> {
+async function countAheadBehind(stageBranch: StageBranch, headLocalRef: string): Promise<{ stageAhead: number; branchAhead: number; branchAheadNonMerge: number }> {
   const result = await shell(
     "git",
     ["rev-list", "--left-right", "--count", `origin/${stageBranch}...${headLocalRef}`],
@@ -440,7 +440,17 @@ async function countAheadBehind(stageBranch: StageBranch, headLocalRef: string):
   const stageAhead = Number.isFinite(Number(stageAheadRaw)) ? Number(stageAheadRaw) : 0;
   const branchAhead = Number.isFinite(Number(branchAheadRaw)) ? Number(branchAheadRaw) : 0;
 
-  return { stageAhead, branchAhead };
+  const branchAheadNonMergeResult = await shell(
+    "git",
+    ["rev-list", "--count", "--no-merges", `origin/${stageBranch}..${headLocalRef}`],
+    { shouldRejectOnError: true }
+  );
+
+  const branchAheadNonMerge = Number.isFinite(Number(branchAheadNonMergeResult.stdout.trim()))
+    ? Number(branchAheadNonMergeResult.stdout.trim())
+    : 0;
+
+  return { stageAhead, branchAhead, branchAheadNonMerge };
 }
 
 /**
@@ -654,9 +664,11 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
     throw new Error(`Hotfix branch "${branch}" is not uniquely based on "${stageBranch}".`);
   }
 
-  const { stageAhead, branchAhead } = await countAheadBehind(stageBranch, localRef);
+  const { stageAhead, branchAhead, branchAheadNonMerge } = await countAheadBehind(stageBranch, localRef);
 
-  debug(`Ahead/Behind counts for '${branch}' vs '${stageBranch}': ahead=${branchAhead}, behind=${stageAhead}`);
+  debug(
+    `Ahead/Behind counts for '${branch}' vs '${stageBranch}': ahead=${branchAhead}, behind=${stageAhead}, ahead(non-merge)=${branchAheadNonMerge}`
+  );
 
   if (stageAhead > 0) {
     await summary
@@ -679,6 +691,17 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
       .write();
 
     throw new Error(`Hotfix branch "${branch}" is not ahead of "${stageBranch}".`);
+  }
+
+  if (branchAheadNonMerge === 0) {
+    await summary
+      .addRaw(
+        `Hotfix branch \`${branch}\` is only ahead of \`${stageBranch}\` via merge commits. Add at least one non-merge commit carrying the hotfix changes before running the workflow.`,
+        true
+      )
+      .write();
+
+    throw new Error(`Hotfix branch "${branch}" only contains merge commits ahead of "${stageBranch}".`);
   }
 }
 
