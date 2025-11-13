@@ -428,6 +428,21 @@ async function forkPoint(base: string, headLocalRef: string): Promise<string | n
   return fp || null;
 }
 
+async function countAheadBehind(stageBranch: StageBranch, headLocalRef: string): Promise<{ stageAhead: number; branchAhead: number }> {
+  const result = await shell(
+    "git",
+    ["rev-list", "--left-right", "--count", `origin/${stageBranch}...${headLocalRef}`],
+    { shouldRejectOnError: true }
+  );
+
+  const [stageAheadRaw, branchAheadRaw] = result.stdout.trim().split(/\s+/);
+
+  const stageAhead = Number.isFinite(Number(stageAheadRaw)) ? Number(stageAheadRaw) : 0;
+  const branchAhead = Number.isFinite(Number(branchAheadRaw)) ? Number(branchAheadRaw) : 0;
+
+  return { stageAhead, branchAhead };
+}
+
 /**
  * Scans OPEN PRs targeting a branch and flags any whose head branch appears to be based on disallowed branches.
  * On failure, it writes a summary headed by `summaryTitle` listing the offending PRs, then throws an Error.
@@ -637,6 +652,33 @@ export async function assertCorrectHotfixBranch(branch: string, stageBranch: "ma
       .write();
 
     throw new Error(`Hotfix branch "${branch}" is not uniquely based on "${stageBranch}".`);
+  }
+
+  const { stageAhead, branchAhead } = await countAheadBehind(stageBranch, localRef);
+
+  debug(`Ahead/Behind counts for '${branch}' vs '${stageBranch}': ahead=${branchAhead}, behind=${stageAhead}`);
+
+  if (stageAhead > 0) {
+    await summary
+      .addRaw(
+        `Hotfix branch \`${branch}\` is missing ${stageAhead} commit(s) from \`${stageBranch}\`. Merge the latest \`${stageBranch}\` before rerunning the workflow.`,
+        true
+      )
+      .addRaw(`Ahead/Behind counts: \`${branchAhead}\` ahead / \`${stageAhead}\` behind.`, true)
+      .write();
+
+    throw new Error(`Hotfix branch "${branch}" is missing commits from "${stageBranch}".`);
+  }
+
+  if (branchAhead === 0) {
+    await summary
+      .addRaw(
+        `Hotfix branch \`${branch}\` contains no commits ahead of \`${stageBranch}\`. Add your fixes before running the hotfix release.`,
+        true
+      )
+      .write();
+
+    throw new Error(`Hotfix branch "${branch}" is not ahead of "${stageBranch}".`);
   }
 }
 
