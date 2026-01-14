@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, shell } from './functions';
+import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertCorrectHotfixBranch, prepareRepository, ensureFreshWorkflowRun, assertValidGitReference } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -43,6 +43,8 @@ async function run(): Promise<void> {
     const stage = getInput('stage', { required: true });
 
     info(`Stage is: '${stage}'`);
+
+    const octokit = getOctokit(token);
 
     const reference = getInput('reference');
 
@@ -72,21 +74,55 @@ async function run(): Promise<void> {
 
     info(`ZX Script arguments: ${zxScriptArguments}`);
 
+    if (reference !== '') {
+      await assertValidGitReference(octokit, context.repo.owner, context.repo.repo, reference);
+    }
+
+    const url = new URL(context.payload.repository!.clone_url!);
+
+    url.password = token;
+
+    url.username = (await octokit.rest.users.getAuthenticated()).data.login;
+
+    debug(`URL: ${stringify(url)}`);
+
+    if (stage === 'alpha' || stage === 'beta') {
+
+      await ensureFreshWorkflowRun(octokit, context.repo.owner, context.repo.repo, context.runId, stage, url);
+    }
+
     if (!['production', 'beta', 'alpha'].includes(stage)) {
 
       throw new Error(`Invalid stage name '${stage}'.`);
     }
 
-    if (hotfix && stage !== 'production') {
+    const hotfixBranches = ['beta', 'production'];
 
-      throw new Error(`A hotfix can only be released on 'production' but '${stage}' is specified as the stage.`);
+    if (hotfix && !hotfixBranches.includes(stage)) {
+
+      throw new Error(`A hotfix can only be released on 'beta' or 'production' but '${stage}' is specified as the target stage.`);
     }
 
-    const target = stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
+    const target = hotfix ? stage === 'beta' ? 'release' : 'main' : stage === 'alpha' ? 'develop' : stage === 'beta' ? 'release' : 'main';
 
     info(`Target of release: '${target}'`);
 
-    const source = stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
+    if (hotfix && reference !== '') {
+
+      debug(`Preparing repository for hotfix branch '${reference}'.`);
+
+      await prepareRepository(url, reference);
+
+      debug(`Repository prepared for hotfix branch '${reference}'.`);
+
+      debug(`Asserting hotfix branch '${reference}' is based on '${target}'.`);
+
+      await assertCorrectHotfixBranch(reference, target as 'main' | 'release');
+
+      debug(`Hotfix branch '${reference}' is based on '${target}'.`);
+    }
+
+    const source = hotfix ? reference : stage === 'alpha' || stage === 'beta' ? 'develop' : 'release';
 
     info(`Source of release: '${source}'`);
 
@@ -95,7 +131,7 @@ async function run(): Promise<void> {
       throw new Error(`Cannot reference '${reference}' while releasing to '${stage}'.`);
     }
 
-    if (stage === 'beta' && reference !== '' && !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(reference)) {
+    if (!hotfix && stage === 'beta' && reference !== '' && !/^v20\d{2}\.\d{1,3}-alpha.\d{1,4}$/.test(reference)) {
 
       throw new Error(`The reference '${reference}' is not a release version from the 'alpha' stage.`);
     }
@@ -103,8 +139,6 @@ async function run(): Promise<void> {
     const detached = !hotfix && reference !== '' && reference !== source;
 
     debug(`Detached: ${detached}`);
-
-    const octokit = getOctokit(token);
 
     startGroup('GitHub Context');
 
@@ -127,13 +161,18 @@ async function run(): Promise<void> {
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
 
+    const releaseTagPattern = /^v20\d{2}\.\d{1,3}(?:\.\d{1,3})?(?:-alpha\.\d{1,4}|-beta\.\d{1,4}(?:\.\d{1,4})*)?$/;
+
     const tags = (await octokit.paginate(octokit.rest.repos.listTags, { owner: context.repo.owner, repo: context.repo.repo }, response => response.data.map(tag => tag.name)))
+        .filter(tag => tag.startsWith('v20') && releaseTagPattern.test(tag))
+        .map(tag => ({
+          tag,
+          branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
+        }))
+        .sort((a, b) => compareVersions(a.tag, b.tag));
 
-        .filter(tag => tag.startsWith('v20') && /^v20\d{2}\.\d{1,3}(?:(?:-alpha|-beta)?.\d{1,4})?$/.test(tag))
-
-        .map(tag => ({ tag: tag, branch: tag.includes('-alpha.') ? 'develop' : tag.includes('-beta.') ? 'release' : 'main'
-
-    })).sort((a, b) => compareVersions(b.tag, a.tag));
+    const latestForBranch = (branch: 'develop' | 'release' | 'main'): string | undefined =>
+      tags.find(release => release.branch === branch)?.tag;
 
     startGroup('Releases');
 
@@ -141,23 +180,29 @@ async function run(): Promise<void> {
 
     endGroup();
 
-    const previousVersion = tags.filter(release => release.branch === target).map(release => release.tag).pop();
+    const previousVersion = latestForBranch(target as 'develop' | 'release' | 'main');
 
     info(`Previous version: '${previousVersion ?? ''}'`);
 
-    const lastAlphaVersion = stage === 'alpha' ? previousVersion : tags.filter(release => release.branch === 'develop').map(release => release.tag).pop();
+    const lastAlphaVersion = stage === 'alpha' ? previousVersion : latestForBranch('develop');
 
     debug(`Last Alpha Version: ${lastAlphaVersion ? `'${lastAlphaVersion}'` : 'null'}`);
 
-    const lastProductionVersion = stage === 'production' ? previousVersion : tags.filter(release => release.branch === 'main').map(release => release.tag).pop();
+    const lastProductionVersion = stage === 'production' ? previousVersion : latestForBranch('main');
 
     debug(`Last Production Version: ${lastProductionVersion ? `'${lastProductionVersion}'` : 'null'}`);
 
-    const version = versioning(stage, reference, hotfix, stage === 'beta' ? lastAlphaVersion : previousVersion, lastProductionVersion);
+    const stageBaseVersion = stage === 'beta'
+
+      ? (hotfix ? previousVersion : lastAlphaVersion)
+
+      : previousVersion;
+
+    const version = versioning(stage, reference, hotfix, stageBaseVersion, lastProductionVersion, stage === 'beta' ? previousVersion : undefined);
 
     const plainVersion = version.substring(1);
 
-    const extendedVersion = hotfix ? version : version.replace(/^(v20\d+\.\d+)(-(?:alpha|beta)\.\d+|)$/img, "$1.0$2");
+    const extendedVersion = buildExtendedVersion(version);
 
     notice(`Release Version: ${version}`);
 
@@ -182,6 +227,8 @@ async function run(): Promise<void> {
     let gitReference;
 
     if (stage === 'alpha') {
+
+      await prepareRepository(url, 'develop');
 
       if (reference !== '' && reference !== 'develop' && typeof previousVersion === 'string') {
 
@@ -223,7 +270,7 @@ async function run(): Promise<void> {
 
         if(checkIssues) {
 
-          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !(issue.labels?.nodes ?? []).some(label => label!.name.trim().toLowerCase() === 'approved'));
+          const issues = (await getMarkedIssues(stage as 'beta' | 'production', octokit)).filter(issue => !(issue.labels?.nodes ?? []).some(label => (label?.name ?? '').trim().toLowerCase() === 'approved'));
 
           if (issues.length > 0) {
 
@@ -239,7 +286,7 @@ async function run(): Promise<void> {
           }
         }
 
-        const ref = detached ? reference : tags.filter(release => release.branch === source).map(release => release.tag).pop();
+        const ref = detached ? reference : latestForBranch(source as 'develop' | 'release' | 'main');
 
         if (typeof ref !== 'string') {
 
@@ -266,21 +313,7 @@ async function run(): Promise<void> {
 
         if ((stage === 'beta' || stage === 'production')) {
 
-          const url = new URL(context.payload.repository!.html_url!);
-
-          const actor = context.actor;
-
-          const githubUrl = `${url.protocol}//${actor}:${token}@${url.hostname}${url.pathname}.git`;
-
-          debug(`Cloning: '${githubUrl}'`);
-
-          await exec('git', ['config', '--global', 'user.email', 'github@noor.se']);
-
-          await exec('git', ['config', '--global', 'user.name', 'Noor’s GitHub Bot']);
-
-          await exec('git', ['clone', '--branch', branchName, githubUrl, '.']);
-
-          await exec('git', ['status']);
+          await prepareRepository(url, branchName);
 
           const stageScriptFile = join('.github', 'zx-scripts' , `${stage}.mjs`);
 
@@ -350,6 +383,7 @@ async function run(): Promise<void> {
 
           throw new Error(`${detached ? `Reference '${reference}'` : `Version '${ref}'`} is not ahead of the branch '${target}'.`);
         }
+
       }
 
       debug(`Head: ${head != null ? `'${head}'` : 'null'}`);
