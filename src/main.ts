@@ -331,7 +331,7 @@ async function run(): Promise<void> {
 
           if (scriptFileWithShebang) {
 
-            await exec('sudo', ['npm', 'install', '--global', 'zx']);
+            await exec('sudo', ['npm', 'install', '--global', 'zx', '--no-optional', '--omit=optional']);
 
             await exec('chmod', ['+x', scriptFile]);
 
