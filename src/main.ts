@@ -426,7 +426,7 @@ async function run(): Promise<void> {
 
         debug(`Merged '${target}' branch into the ${head} branch.`);
 
-        await exec('git', ['checkout', '-b', target]);
+        await exec('git', ['checkout', '-B', target]);
 
         debug(`Checked out to '${target}' branch.`);
 
