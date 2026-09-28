@@ -631,7 +631,7 @@ const artifact_1 = __nccwpck_require__(23339);
 const functions_1 = __nccwpck_require__(81786);
 const util_1 = __nccwpck_require__(73837);
 const fs_1 = __nccwpck_require__(57147);
-const functions_2 = __nccwpck_require__(29386);
+const functions_2 = __nccwpck_require__(82641);
 const exec_1 = __nccwpck_require__(15082);
 const node_fs_1 = __nccwpck_require__(87561);
 const node_path_1 = __nccwpck_require__(49411);
@@ -705,10 +705,15 @@ function run() {
             if (detached && !['behind', 'identical'].includes((yield octokit.rest.repos.compareCommits({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, base: source, head: reference })).data.status)) {
                 throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
             }
-            if ((yield octokit.rest.repos.listBranches({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo })).data.every(branch => branch.name !== source)) {
+            const branches = yield octokit.paginate(octokit.rest.repos.listBranches, {
+                owner: github_1.context.repo.owner,
+                repo: github_1.context.repo.repo,
+                per_page: 100
+            });
+            if (branches.every(branch => branch.name !== source)) {
                 throw new Error(`The source branch '${source}' was not found.`);
             }
-            if (hotfix && (reference === '' || (yield octokit.rest.repos.listBranches({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo })).data.every(branch => branch.name !== reference))) {
+            if (hotfix && (reference === '' || branches.every(branch => branch.name !== reference))) {
                 throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
             }
             const releaseTagPattern = /^v20\d{2}\.\d{1,3}(?:\.\d{1,3})?(?:-alpha\.\d{1,4}|-beta\.\d{1,4}(?:\.\d{1,4})*)?$/;
@@ -6742,7 +6747,7 @@ const Context = __importStar(__nccwpck_require__(89194));
 const Utils = __importStar(__nccwpck_require__(25442));
 // octokit + plugins
 const core_1 = __nccwpck_require__(33520);
-const plugin_rest_endpoint_methods_1 = __nccwpck_require__(55628);
+const plugin_rest_endpoint_methods_1 = __nccwpck_require__(11931);
 const plugin_paginate_rest_1 = __nccwpck_require__(38810);
 exports.context = new Context.Context();
 const baseUrl = Utils.getApiBaseUrl();
@@ -34988,7 +34993,7 @@ exports.requestLog = requestLog;
 
 /***/ }),
 
-/***/ 55628:
+/***/ 11931:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -134401,7 +134406,7 @@ ZipStream.prototype.finalize = function() {
 
 /***/ }),
 
-/***/ 29386:
+/***/ 82641:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
