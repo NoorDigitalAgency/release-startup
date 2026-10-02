@@ -151,12 +151,18 @@ async function run(): Promise<void> {
       throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
     }
 
-    if ((await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== source)) {
+    const branches = await octokit.paginate(octokit.rest.repos.listBranches, {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      per_page: 100
+    });
+
+    if (branches.every(branch => branch.name !== source)) {
 
       throw new Error(`The source branch '${source}' was not found.`);
     }
 
-    if (hotfix && (reference === '' || (await octokit.rest.repos.listBranches({ owner: context.repo.owner, repo: context.repo.repo })).data.every(branch => branch.name !== reference))) {
+    if (hotfix && (reference === '' || branches.every(branch => branch.name !== reference))) {
 
       throw new Error(reference === '' ? 'The hotfix branch name (\'reference\') cannot be empty.' : `The hotfix branch '${reference}' could not be found.`);
     }
