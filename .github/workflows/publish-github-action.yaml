@@ -11,8 +11,34 @@ on:
           - main
           - develop
 
+permissions:
+  contents: write
+  packages: read
+
 jobs:
   publish:
-    uses: NoorDigitalAgency/.github/.github/workflows/publish-github-action.yaml@main
-    with:
-      branch: ${{ github.event.inputs.branch }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          registry-url: https://npm.pkg.github.com
+          scope: '@noordigitalagency'
+
+      - run: npm i
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run all
+
+      - run: |
+          git config --global user.name "Noor's GitHub Bot"
+          git config --global user.email "noorgithubbot@github"
+          git add -A
+          git commit -m "Automated build and publish"
+          git push
