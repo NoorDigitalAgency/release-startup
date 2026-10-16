@@ -11,6 +11,11 @@ export function wait(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+export function fetchBranches(octokit: InstanceType<typeof GitHub>, owner: string, repo: string) {
+
+  return octokit.paginate(octokit.rest.repos.listBranches, { owner, repo, per_page: 100 });
+}
+
 export function versioning(
   stage: string,
   reference: string,
