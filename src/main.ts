@@ -16,7 +16,7 @@ import {
 import { getOctokit, context } from '@actions/github';
 import { rmRF } from '@actions/io';
 import { DefaultArtifactClient } from '@actions/artifact';
-import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertCorrectHotfixBranch, prepareRepository, ensureFreshWorkflowRun, assertValidGitReference } from './functions';
+import { wait, versioning, compareVersions, buildExtendedVersion, shell, assertCorrectHotfixBranch, prepareRepository, ensureFreshWorkflowRun, assertValidGitReference, fetchBranches } from './functions';
 import { inspect as stringify } from 'util';
 import { writeFileSync } from 'fs';
 import { getMarkedIssues, getIssueRepository } from "issue-marker/src/functions";
@@ -151,11 +151,7 @@ async function run(): Promise<void> {
       throw new Error(`The reference '${reference}' could not be found on the base branch '${source}'.`);
     }
 
-    const branches = await octokit.paginate(octokit.rest.repos.listBranches, {
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      per_page: 100
-    });
+    const branches = await fetchBranches(octokit, context.repo.owner, context.repo.repo);
 
     if (branches.every(branch => branch.name !== source)) {
 
